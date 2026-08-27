@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Kermés — hoja de contactos</title>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;600&family=IBM+Plex+Mono:wght@400&display=swap" rel="stylesheet">
+<style>
+  body{margin:0;background:#0a090e;color:#d8d2c8;
+    font-family:'IBM Plex Mono',monospace;padding:18px}
+  h1{font-family:'Cormorant Garamond',serif;font-weight:400;font-size:1.5rem;margin:0 0 16px}
+  .grilla{display:grid;grid-template-columns:repeat(auto-fill,minmax(430px,1fr));gap:18px}
+  figure{margin:0}
+  canvas{width:100%;aspect-ratio:16/9;display:block;border:1px solid #2a2634;background:#000}
+  figcaption{font-size:.66rem;letter-spacing:.1em;text-transform:uppercase;
+    color:#8b8496;padding:7px 2px}
+  figcaption b{color:#e8a33d;font-weight:400}
+</style>
+</head>
+<body>
+<h1>Hoja de contactos — las nueve escenas</h1>
+<div class="grilla" id="g"></div>
+
+<script src="../js/dibujo.js"></script>
+<script src="../js/arcanos.js"></script>
+<script src="../js/luna.js"></script>
+<script src="../js/escenas.js"></script>
+<script>
+const luna = Luna.estado();
+const g = document.getElementById('g');
+const lienzos = [];
+
+Object.keys(Escenas.CATALOGO).forEach(clave => {
+  const esc = Escenas.CATALOGO[clave];
+  const fig = document.createElement('figure');
+  const cv = document.createElement('canvas');
+  const cap = document.createElement('figcaption');
+  cap.innerHTML = '<b>' + esc.titulo + '</b> — ' + esc.sub;
+  fig.appendChild(cv); fig.appendChild(cap); g.appendChild(fig);
+  lienzos.push({clave, esc, cv});
+});
+
+function medir(){
+  lienzos.forEach(l => {
+    const r = l.cv.getBoundingClientRect();
+    const dpr = Math.min(devicePixelRatio||1, 2);
+    l.cv.width = Math.round(r.width*dpr);
+    l.cv.height = Math.round(r.height*dpr);
+    l.ctx = l.cv.getContext('2d');
+    l.ctx.setTransform(dpr,0,0,dpr,0,0);
+    l.w = r.width; l.h = r.height;
+  });
+}
+medir(); addEventListener('resize', medir);
+
+let t = 0;
+function bucle(){
+  t += 1/60;
+  lienzos.forEach(l => {
+    Dib.usar(l.ctx, l.w, l.h, t, true);
+    if (!l.sembrado){ Dib.sembrar(Math.round(l.w*l.h/8000)); Dib.sembrarMotas(40); l.sembrado = true; }
+    l.ctx.clearRect(0,0,l.w,l.h);
+    try { l.esc.pinta({cx:l.ctx, t, luna, W:l.w, H:l.h}); }
+    catch(e){
+      l.ctx.fillStyle='#3a0d14'; l.ctx.fillRect(0,0,l.w,l.h);
+      l.ctx.fillStyle='#ffb0b8'; l.ctx.font='13px monospace';
+      l.ctx.fillText(l.clave + ': ' + e.message, 12, 24);
+      if(!l.avisado){ console.error(l.clave, e); l.avisado = true; }
+    }
+  });
+  requestAnimationFrame(bucle);
+}
+bucle();
+
+// Las estrellas y las motas son globales del modulo: se resiembran una sola vez
+// con el tamano del ultimo lienzo, alcanza para revisar la composicion.
+window.__estado = () => lienzos.map(l => ({clave:l.clave, w:Math.round(l.w), h:Math.round(l.h)}));
+</script>
+</body>
+</html>

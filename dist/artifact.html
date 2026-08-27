@@ -1,0 +1,3319 @@
+<title>Kermés</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;1,400&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+/* Kermés — noche de feria: ámbar de bombita sobre negro verdoso.
+   El juego vive sobre un canvas a pantalla completa, así que la interfaz
+   flota encima y todo lo que lleva texto necesita su propio fondo. */
+
+:root{
+  --noche:#07090c;
+  --panel:rgba(7,8,13,.90);
+  --borde:#2a2432;
+  --borde-vivo:#4a3c2a;
+  --ambar:#e8a33d;
+  --ambar-claro:#ffd28a;
+  --carpa:#a8323f;
+  --carpa-claro:#d4636f;
+  --verde:#6fa88a;
+  --hueso:#e6ded0;
+  --tenue:#8f8798;
+  --tenue-2:#5d566a;
+  --serif:'Cormorant Garamond',Georgia,'Times New Roman',serif;
+  --mono:'IBM Plex Mono',ui-monospace,'SF Mono',Consolas,monospace;
+}
+
+*{box-sizing:border-box}
+
+html,body{
+  margin:0;height:100%;
+  background:var(--noche);
+  color:var(--hueso);
+  font-family:var(--serif);
+  font-size:18px;line-height:1.6;
+  -webkit-font-smoothing:antialiased;
+  overflow:hidden;
+}
+
+#lienzo{position:fixed;inset:0;width:100%;height:100%;display:block;z-index:0}
+
+#ui{
+  position:fixed;inset:0;z-index:1;
+  overflow-y:auto;overscroll-behavior:contain;
+  display:flex;flex-direction:column;
+}
+
+.pantalla{
+  min-height:100%;
+  display:flex;flex-direction:column;
+  padding:0 0 26px;
+  animation:aparece .55s ease both;
+}
+@keyframes aparece{from{opacity:0}to{opacity:1}}
+
+/* ---------- barra superior ---------- */
+
+.barra{
+  display:flex;align-items:center;justify-content:space-between;gap:14px;
+  padding:14px 22px;
+  font-family:var(--mono);font-size:.72rem;
+  background:linear-gradient(to bottom,rgba(5,6,10,.92),rgba(5,6,10,0));
+  position:sticky;top:0;z-index:3;
+}
+.barra-izq{display:flex;align-items:center;gap:8px;color:var(--tenue)}
+.luna-glifo{color:var(--ambar);font-size:1rem}
+.luna-txt{letter-spacing:.06em}
+.barra-der{display:flex;gap:8px}
+
+/* ---------- panel de contenido ---------- */
+
+.panel{
+  margin:auto 0 0;
+  padding:26px 64px 26px 34px;
+  max-width:min(760px,86vw);
+  background:
+    linear-gradient(to right,var(--panel) 62%,rgba(7,8,13,.55) 84%,transparent),
+    linear-gradient(to top,rgba(7,8,13,.55),transparent 55%);
+}
+.panel.encuentro{
+  background:
+    linear-gradient(to right,rgba(14,5,8,.94) 62%,rgba(14,5,8,.6) 84%,transparent),
+    linear-gradient(to top,rgba(14,5,8,.6),transparent 55%);
+}
+.panel.final{margin-top:0;justify-content:flex-start}
+
+.rotulo{margin-bottom:.9em}
+.rotulo .arcano{
+  font-family:var(--mono);font-size:.66rem;letter-spacing:.26em;
+  text-transform:uppercase;color:var(--ambar);margin:0 0 .45em;
+}
+.rotulo h1{
+  font-size:2.1rem;font-weight:400;margin:0;letter-spacing:.01em;
+  text-wrap:balance;text-shadow:0 2px 24px #000;
+}
+
+.prosa{max-width:60ch}
+.prosa p{
+  margin:0 0 .95em;text-wrap:pretty;
+  animation:sube .7s ease both;
+}
+@keyframes sube{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+.prosa p.sep{text-align:center;color:var(--tenue-2);letter-spacing:.5em;margin:1.6em 0}
+.prosa em{color:var(--ambar-claro);font-style:italic}
+.prosa strong{color:#f2ece2;font-weight:600}
+
+.instruccion{
+  font-family:var(--mono);font-size:.76rem;letter-spacing:.14em;
+  text-transform:uppercase;color:var(--ambar);margin:1.4em 0 .6em;
+}
+.fino{
+  font-family:var(--mono);font-size:.74rem;line-height:1.7;
+  color:var(--tenue);margin:.5em 0;
+}
+.fino strong{color:var(--hueso);font-weight:500}
+
+/* ---------- portada ---------- */
+
+.portada{
+  margin:9vh auto auto;text-align:center;padding:0 22px;
+  animation:sube 1.4s ease both;
+}
+.portada .arcano{
+  font-family:var(--mono);font-size:.68rem;letter-spacing:.3em;
+  text-transform:uppercase;color:var(--tenue);margin:0 0 1em;
+}
+.titulo{
+  font-size:clamp(3rem,11vw,6rem);font-weight:400;margin:0;
+  letter-spacing:.02em;line-height:1;
+  background:linear-gradient(180deg,#ffe6b4,var(--ambar) 55%,#8a6114);
+  -webkit-background-clip:text;background-clip:text;color:transparent;
+  filter:drop-shadow(0 0 40px rgba(232,163,61,.28));
+}
+.bajada{
+  color:var(--tenue);font-style:italic;font-size:1.05rem;
+  margin:1.2em 0 0;
+}
+.portada + .acciones{justify-content:center;padding:0 22px 8vh;margin-top:auto}
+
+/* ---------- botones ---------- */
+
+.acciones{
+  display:flex;flex-wrap:wrap;gap:11px;margin-top:1.6em;align-items:center;
+}
+.bt{
+  font-family:var(--mono);font-size:.78rem;letter-spacing:.06em;
+  padding:11px 20px;border-radius:2px;
+  border:1px solid var(--borde);
+  background:rgba(9,10,16,.8);color:var(--hueso);
+  cursor:pointer;
+  transition:border-color .18s,color .18s,background .18s;
+}
+.bt:hover{border-color:var(--ambar);color:var(--ambar-claro)}
+.bt:focus-visible{outline:2px solid var(--ambar);outline-offset:2px}
+.bt-primario{
+  border-color:var(--borde-vivo);color:var(--ambar-claro);
+  background:linear-gradient(180deg,rgba(232,163,61,.14),rgba(232,163,61,.04));
+}
+.bt-primario:hover{background:rgba(232,163,61,.22)}
+.bt-chico{padding:6px 12px;font-size:.68rem}
+
+/* ---------- destinos del mapa ---------- */
+
+.destinos{
+  display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));
+  gap:10px;margin:1.4em 0 .4em;max-width:960px;
+}
+.destino{
+  display:flex;flex-direction:column;gap:3px;align-items:flex-start;
+  text-align:left;padding:13px 16px;
+  background:rgba(10,11,18,.8);
+  border:1px solid var(--borde);border-radius:2px;
+  color:var(--hueso);cursor:pointer;font-family:var(--serif);
+  transition:border-color .18s,transform .18s,background .18s;
+}
+.destino:hover{border-color:var(--ambar);transform:translateY(-2px);background:rgba(232,163,61,.08)}
+.destino:focus-visible{outline:2px solid var(--ambar);outline-offset:2px}
+.destino-arcano{
+  font-family:var(--mono);font-size:.6rem;letter-spacing:.16em;
+  text-transform:uppercase;color:var(--ambar);
+}
+.destino-tit{font-size:1.12rem;line-height:1.2}
+.destino-ya{
+  font-family:var(--mono);font-size:.6rem;letter-spacing:.1em;color:var(--tenue-2);
+}
+.destino.visitado{opacity:.62}
+.destino.visitado:hover{opacity:1}
+
+/* ---------- opciones de acción ---------- */
+
+.opciones{display:grid;gap:9px;margin:1.1em 0 .3em;max-width:58ch}
+.opcion{
+  font-family:var(--serif);font-size:1.06rem;text-align:left;
+  padding:13px 18px;
+  background:rgba(10,11,18,.8);
+  border:1px solid var(--borde);border-radius:2px;
+  color:var(--hueso);cursor:pointer;
+  transition:border-color .18s,transform .18s,background .18s;
+}
+.opcion:hover{border-color:var(--ambar);transform:translateX(4px);background:rgba(232,163,61,.08)}
+.opcion:focus-visible{outline:2px solid var(--ambar);outline-offset:2px}
+
+/* ---------- cartas ---------- */
+
+.mano{display:flex;flex-wrap:wrap;gap:12px;margin:.9em 0 .2em}
+.mano.bloqueada .carta{pointer-events:none}
+.mano.bloqueada .carta:not(.jugada){opacity:.4;transition:opacity .3s}
+.mano-vacia{color:var(--tenue);font-style:italic;margin:.6em 0}
+
+.carta{
+  width:96px;height:150px;flex-shrink:0;
+  border-radius:5px;
+  background:linear-gradient(165deg,#191423,#0a0810);
+  border:1px solid #3d3348;
+  box-shadow:0 10px 26px rgba(0,0,0,.8),inset 0 1px 0 rgba(255,255,255,.05);
+  display:flex;flex-direction:column;align-items:center;justify-content:space-between;
+  padding:10px 7px;
+  animation:reparte .7s ease both;
+  transition:transform .26s cubic-bezier(.2,.8,.3,1),box-shadow .26s,border-color .26s;
+}
+@keyframes reparte{
+  from{opacity:0;transform:translateY(70px) rotate(-6deg) scale(.86)}
+  to{opacity:1;transform:none}
+}
+.carta .num{
+  font-family:var(--mono);font-size:.56rem;letter-spacing:.14em;color:var(--tenue-2);
+}
+.carta .glifo{
+  font-size:2.2rem;line-height:1;color:var(--ambar);
+  filter:drop-shadow(0 0 12px rgba(232,163,61,.5));
+}
+.carta .nom{font-size:.82rem;text-align:center;line-height:1.15}
+.carta.invertida .glifo{
+  transform:rotate(180deg);color:var(--carpa-claro);
+  filter:drop-shadow(0 0 12px rgba(212,99,111,.5));
+}
+.carta.invertida .nom::after{content:' ⤾';color:var(--carpa-claro)}
+
+.carta.jugable{cursor:pointer}
+.carta.jugable:hover{
+  transform:translateY(-16px) scale(1.05);
+  border-color:var(--ambar);
+  box-shadow:0 20px 44px rgba(0,0,0,.9),0 0 28px rgba(232,163,61,.3);
+}
+.carta.jugable:focus-visible{outline:2px solid var(--ambar);outline-offset:3px}
+.carta.jugada{
+  animation:none;
+  transform:translateY(-160px) scale(1.3) rotateY(180deg);
+  opacity:0;
+  transition:transform .45s cubic-bezier(.3,.9,.3,1),opacity .45s;
+}
+
+.carta.dorso{
+  background:
+    repeating-linear-gradient(45deg,#151020 0 6px,#100c19 6px 12px);
+  border-color:#3a2f28;
+  justify-content:center;
+}
+.dorso-marca{font-size:1.7rem;color:rgba(200,160,90,.42)}
+.carta.dorso.girando{
+  transform:rotateY(90deg);
+  transition:transform .34s ease-in;
+}
+
+/* ---------- tirada ---------- */
+
+.tirada{
+  display:flex;flex-wrap:wrap;gap:24px;margin:1.6em 0 .4em;
+}
+.tirada-caja{
+  display:flex;flex-direction:column;align-items:center;gap:8px;
+  width:190px;
+}
+.tirada-pos{
+  font-family:var(--mono);font-size:.62rem;letter-spacing:.16em;
+  text-transform:uppercase;color:var(--ambar);margin:.3em 0 0;text-align:center;
+}
+.tirada-txt{
+  margin:0;font-size:.94rem;line-height:1.45;text-align:center;
+  color:var(--tenue);opacity:0;transition:opacity .7s;
+}
+.tirada-txt.visible{opacity:1}
+.tirada-txt strong{color:var(--hueso);font-weight:600}
+
+/* ---------- carta ganada ---------- */
+
+.ganada{
+  margin:1.3em 0 .2em;padding:14px 16px;
+  border-left:2px solid var(--ambar);
+  background:rgba(232,163,61,.05);
+  max-width:58ch;
+}
+.ganada-tit{
+  font-family:var(--mono);font-size:.68rem;letter-spacing:.16em;
+  text-transform:uppercase;color:var(--ambar);margin:0 0 .5em;
+}
+.ganada-txt{margin:.7em 0 0;font-size:.96rem;color:var(--tenue)}
+.ganada-txt strong{color:var(--hueso)}
+
+/* ---------- resumen final ---------- */
+
+.resumen{margin:1.6em 0 0;padding-top:1em;border-top:1px solid var(--borde)}
+
+/* ---------- overlay ---------- */
+
+.overlay{
+  position:fixed;inset:0;z-index:20;
+  background:rgba(3,4,7,.92);
+  overflow-y:auto;padding:26px 16px;
+  animation:aparece .25s ease both;
+}
+.overlay-caja{
+  max-width:820px;margin:0 auto;
+  background:rgba(9,10,16,.96);
+  border:1px solid var(--borde);
+  padding:26px 28px;
+}
+
+/* ---------- pantallas chicas ---------- */
+
+@media (max-width:700px){
+  html,body{font-size:17px}
+  .barra{padding:11px 16px;font-size:.66rem}
+  .luna-txt{display:none}
+  .panel{padding:20px 18px 18px;max-width:none;
+    background:linear-gradient(to top,var(--panel) 62%,rgba(7,8,13,.8) 86%,transparent)}
+  .rotulo h1{font-size:1.6rem}
+  .destinos{grid-template-columns:1fr}
+  .carta{width:82px;height:128px}
+  .carta .glifo{font-size:1.8rem}
+  .carta .nom{font-size:.74rem}
+  .tirada{gap:16px;justify-content:center}
+  .tirada-caja{width:140px}
+  .acciones .bt{flex:1 1 auto}
+}
+
+@media (prefers-reduced-motion:reduce){
+  *{animation-duration:.01ms!important;transition-duration:.01ms!important}
+}
+</style>
+<canvas id="lienzo" aria-hidden="true"></canvas>
+<main id="ui"></main>
+<script>
+/* ===== js/luna.js ===== */
+/* La luna de esta noche, de verdad.
+   Versión compacta: alcanza con la longitud del Sol y de la Luna para sacar la
+   fase y el signo. Serie lunar ELP-2000 truncada (Meeus cap. 47) y Sol por la
+   fórmula de precisión reducida del cap. 25, que da mejor de 0.01°.
+   La fase decide qué atracciones están abiertas, así que cambia cada noche. */
+var Luna = (function () {
+  'use strict';
+
+  var D2R = Math.PI / 180;
+  function norm360(x) { x = x % 360; return x < 0 ? x + 360 : x; }
+  function sind(x) { return Math.sin(x * D2R); }
+  function cosd(x) { return Math.cos(x * D2R); }
+
+  function julianDay(y, m, d, horas) {
+    horas = horas || 0;
+    if (m <= 2) { y -= 1; m += 12; }
+    var a = Math.floor(y / 100);
+    var b = 2 - a + Math.floor(a / 4);
+    return Math.floor(365.25 * (y + 4716)) + Math.floor(30.6001 * (m + 1))
+      + d + b - 1524.5 + horas / 24;
+  }
+
+  /* Términos principales de la serie de longitud lunar: [D, M, M', F, coef].
+     Con estos treinta el error queda muy por debajo del grado, que es todo lo
+     que hace falta para saber la fase y en qué signo está. */
+  var TERMINOS = [
+    [0,0,1,0,6288774],[2,0,-1,0,1274027],[2,0,0,0,658314],[0,0,2,0,213618],
+    [0,1,0,0,-185116],[0,0,0,2,-114332],[2,0,-2,0,58793],[2,-1,-1,0,57066],
+    [2,0,1,0,53322],[2,-1,0,0,45758],[0,1,-1,0,-40923],[1,0,0,0,-34720],
+    [0,1,1,0,-30383],[2,0,0,-2,15327],[0,0,1,2,-12528],[0,0,1,-2,10980],
+    [4,0,-1,0,10675],[0,0,3,0,10034],[4,0,-2,0,8548],[2,1,-1,0,-7888],
+    [2,1,0,0,-6766],[1,0,-1,0,-5163],[1,1,0,0,4987],[2,-1,1,0,4036],
+    [2,0,2,0,3994],[4,0,0,0,3861],[2,0,-3,0,3665],[0,1,-2,0,-2689],
+    [2,0,-1,2,-2602],[2,-1,-2,0,2390],[1,0,1,0,-2348],[2,-2,0,0,2236]
+  ];
+
+  function longitudLuna(jde) {
+    var T = (jde - 2451545.0) / 36525.0;
+    var Lp = 218.3164477 + 481267.88123421 * T - 0.0015786 * T * T + Math.pow(T, 3) / 538841;
+    var D = 297.8501921 + 445267.1114034 * T - 0.0018819 * T * T;
+    var M = 357.5291092 + 35999.0502909 * T - 0.0001536 * T * T;
+    var Mp = 134.9633964 + 477198.8675055 * T + 0.0087414 * T * T;
+    var F = 93.2720950 + 483202.0175233 * T - 0.0036539 * T * T;
+    var E = 1 - 0.002516 * T - 0.0000074 * T * T;
+    var A1 = 119.75 + 131.849 * T, A2 = 53.09 + 479264.290 * T;
+
+    var suma = 0;
+    for (var i = 0; i < TERMINOS.length; i++) {
+      var r = TERMINOS[i];
+      var arg = r[0] * D + r[1] * M + r[2] * Mp + r[3] * F;
+      var ecc = Math.abs(r[1]) === 1 ? E : (Math.abs(r[1]) === 2 ? E * E : 1);
+      suma += r[4] * ecc * sind(arg);
+    }
+    suma += 3958 * sind(A1) + 1962 * sind(Lp - F) + 318 * sind(A2);
+    return norm360(Lp + suma / 1000000);
+  }
+
+  function longitudSol(jde) {
+    var T = (jde - 2451545.0) / 36525.0;
+    var L0 = 280.46646 + 36000.76983 * T + 0.0003032 * T * T;
+    var M = 357.52911 + 35999.05029 * T - 0.0001537 * T * T;
+    var C = (1.914602 - 0.004817 * T - 0.000014 * T * T) * sind(M)
+      + (0.019993 - 0.000101 * T) * sind(2 * M)
+      + 0.000289 * sind(3 * M);
+    return norm360(L0 + C);
+  }
+
+  var SIGNOS = ['Aries', 'Tauro', 'Géminis', 'Cáncer', 'Leo', 'Virgo',
+    'Libra', 'Escorpio', 'Sagitario', 'Capricornio', 'Acuario', 'Piscis'];
+  var GLIFOS = ['♈', '♉', '♊', '♋', '♌', '♍', '♎', '♏', '♐', '♑', '♒', '♓'];
+  var ELEMENTOS = ['fuego', 'tierra', 'aire', 'agua'];
+
+  /* Nombre de la fase según la elongación, con los cortes que se usan siempre. */
+  function nombreFase(elong) {
+    if (elong < 22.5 || elong >= 337.5) return 'luna nueva';
+    if (elong < 67.5) return 'creciente';
+    if (elong < 112.5) return 'cuarto creciente';
+    if (elong < 157.5) return 'gibosa creciente';
+    if (elong < 202.5) return 'luna llena';
+    if (elong < 247.5) return 'gibosa menguante';
+    if (elong < 292.5) return 'cuarto menguante';
+    return 'menguante';
+  }
+
+  /* Estado de la luna en una fecha. Sin argumento, ahora mismo. */
+  function estado(fecha) {
+    var f = fecha || new Date();
+    var jd = julianDay(f.getUTCFullYear(), f.getUTCMonth() + 1, f.getUTCDate(),
+      f.getUTCHours() + f.getUTCMinutes() / 60);
+    // ΔT ronda los 70 s en estas décadas: para la fase es despreciable, pero
+    // se aplica igual porque no cuesta nada.
+    var jde = jd + 70 / 86400;
+    var ll = longitudLuna(jde), ls = longitudSol(jde);
+    var elong = norm360(ll - ls);
+    var iluminacion = (1 - cosd(elong)) / 2;
+    var signo = Math.floor(ll / 30);
+    return {
+      jd: jd,
+      longitud: ll,
+      longitudSol: ls,
+      elongacion: elong,
+      iluminacion: iluminacion,
+      creciente: elong < 180,
+      fase: nombreFase(elong),
+      signo: signo,
+      signoNombre: SIGNOS[signo],
+      signoGlifo: GLIFOS[signo],
+      elemento: ELEMENTOS[signo % 4],
+      grado: ll - signo * 30,
+      // Los treinta días del ciclo, para elegir variantes con algo estable.
+      diaLunar: Math.floor(elong / 360 * 29.53)
+    };
+  }
+
+  function texto(e) {
+    var g = Math.floor(e.grado);
+    var m = Math.floor((e.grado - g) * 60);
+    return e.fase + ' · ' + g + '°' + (m < 10 ? '0' : '') + m + "' " + e.signoGlifo +
+      ' ' + e.signoNombre;
+  }
+
+  return {
+    julianDay: julianDay,
+    longitudLuna: longitudLuna,
+    longitudSol: longitudSol,
+    estado: estado,
+    texto: texto,
+    SIGNOS: SIGNOS, GLIFOS: GLIFOS
+  };
+})();
+
+/* ===== js/arcanos.js ===== */
+/* Los 22 Arcanos Mayores.
+   Cada uno tiene su lectura tradicional, un efecto cuando se juega en un
+   encuentro, y una lectura invertida distinta. No son adorno: el efecto de
+   cada carta sale de lo que la carta significa. */
+var Arcanos = (function () {
+  'use strict';
+
+  /* clave    identificador interno
+     num      numeral romano, como se imprime
+     nombre   como lo dice la gente
+     glifo    simbolo que se dibuja en la carta
+     recto    que hace jugada al derecho
+     invertido que hace jugada al reves
+     tono     'luz' | 'sombra' | 'ambos' — tiñe la escena al jugarla
+     verbo    accion corta para el boton */
+  var CARTAS = [
+    {
+      clave: 'loco', num: '0', nombre: 'El Loco', glifo: '✧', tono: 'luz',
+      lectura: 'Empezar sin saber. El salto antes de mirar.',
+      recto: { verbo: 'Avanzar sin mirar', efecto: 'salto',
+        texto: 'Bel hace lo único que no estaba previsto: sigue caminando.' },
+      invertido: { verbo: 'Frenar en seco', efecto: 'freno',
+        texto: 'Se queda quieta justo antes del borde.' }
+    },
+    {
+      clave: 'mago', num: 'I', nombre: 'El Mago', glifo: '⚚', tono: 'luz',
+      lectura: 'Tener las herramientas y saber usarlas.',
+      recto: { verbo: 'Usar lo que tenés', efecto: 'usar',
+        texto: 'Bel junta lo que trae encima y lo hace servir para otra cosa.' },
+      invertido: { verbo: 'Improvisar', efecto: 'trampa',
+        texto: 'No tiene con qué. Igual hace el gesto, y por un rato alcanza.' }
+    },
+    {
+      clave: 'sacerdotisa', num: 'II', nombre: 'La Sacerdotisa', glifo: '☾', tono: 'luz',
+      lectura: 'Saber sin que te lo digan. Lo que está detrás del velo.',
+      recto: { verbo: 'Escuchar', efecto: 'ver',
+        texto: 'Bel se queda callada el tiempo suficiente como para entender.' },
+      invertido: { verbo: 'Desconfiar', efecto: 'ocultar',
+        texto: 'Lo que sabe se lo guarda, y eso también es una forma de defensa.' }
+    },
+    {
+      clave: 'emperatriz', num: 'III', nombre: 'La Emperatriz', glifo: '♀', tono: 'luz',
+      lectura: 'Lo que crece, lo que abunda, lo que cuida.',
+      recto: { verbo: 'Cuidar', efecto: 'curar',
+        texto: 'Bel se ocupa de algo que no era suyo, y algo se destraba.' },
+      invertido: { verbo: 'Soltar', efecto: 'soltar',
+        texto: 'Deja de sostener lo que ya no se sostiene solo.' }
+    },
+    {
+      clave: 'emperador', num: 'IV', nombre: 'El Emperador', glifo: '♃', tono: 'ambos',
+      lectura: 'La ley, el límite, lo que no se discute.',
+      recto: { verbo: 'Poner el límite', efecto: 'limite',
+        texto: 'Bel dice que no de una manera que no admite respuesta.' },
+      invertido: { verbo: 'Desobedecer', efecto: 'romper',
+        texto: 'Hace exactamente lo que la feria le prohibió.' }
+    },
+    {
+      clave: 'sumo', num: 'V', nombre: 'El Sumo Sacerdote', glifo: '⛨', tono: 'luz',
+      lectura: 'Lo que se aprende de otro. La tradición.',
+      recto: { verbo: 'Hacer lo enseñado', efecto: 'rito',
+        texto: 'Bel repite un gesto que aprendió hace años sin saber para qué.' },
+      invertido: { verbo: 'Hacerlo a tu modo', efecto: 'herejia',
+        texto: 'Cambia el rito a mitad de camino. Funciona igual, o casi.' }
+    },
+    {
+      clave: 'enamorados', num: 'VI', nombre: 'Los Enamorados', glifo: '⚭', tono: 'ambos',
+      lectura: 'Elegir. Y por elegir, perder lo otro.',
+      recto: { verbo: 'Elegir', efecto: 'elegir',
+        texto: 'Bel elige, y al elegir deja algo del otro lado.' },
+      invertido: { verbo: 'No elegir', efecto: 'dudar',
+        texto: 'Se queda con las dos cosas un rato más, y las dos se enfrían.' }
+    },
+    {
+      clave: 'carro', num: 'VII', nombre: 'El Carro', glifo: '⛊', tono: 'luz',
+      lectura: 'Avanzar con fuerza y en una dirección.',
+      recto: { verbo: 'Embestir', efecto: 'embestir',
+        texto: 'Bel no rodea: atraviesa.' },
+      invertido: { verbo: 'Perder el rumbo', efecto: 'derrapar',
+        texto: 'Va rápido, pero no exactamente hacia donde quería.' }
+    },
+    {
+      clave: 'justicia', num: 'VIII', nombre: 'La Justicia', glifo: '⚖', tono: 'ambos',
+      lectura: 'La cuenta exacta. Lo que corresponde.',
+      recto: { verbo: 'Cobrar lo justo', efecto: 'balanza',
+        texto: 'Bel pone las cosas en su lugar, sin agregar ni perdonar.' },
+      invertido: { verbo: 'Dejar pasar', efecto: 'perdonar',
+        texto: 'Podría cobrarla. No la cobra.' }
+    },
+    {
+      clave: 'ermitano', num: 'IX', nombre: 'El Ermitaño', glifo: '✦', tono: 'luz',
+      lectura: 'Retirarse con la propia luz. Buscar solo.',
+      recto: { verbo: 'Cerrarse', efecto: 'refugio',
+        texto: 'Bel se hace chiquita alrededor de su propia luz, y lo deja pasar de largo.' },
+      invertido: { verbo: 'Aislarse de más', efecto: 'encierro',
+        texto: 'Se cierra tanto que tampoco entra lo que la ayudaba.' }
+    },
+    {
+      clave: 'rueda', num: 'X', nombre: 'La Rueda de la Fortuna', glifo: '⊛', tono: 'ambos',
+      lectura: 'Lo que gira. Lo que no depende de vos.',
+      recto: { verbo: 'Dejar que gire', efecto: 'azar',
+        texto: 'Bel suelta las manos y deja que la vuelta la lleve.' },
+      invertido: { verbo: 'Trabar la rueda', efecto: 'trabar',
+        texto: 'Mete el pie. La rueda se queja y para.' }
+    },
+    {
+      clave: 'fuerza', num: 'XI', nombre: 'La Fuerza', glifo: '∞', tono: 'luz',
+      lectura: 'Dominar sin violencia. La mano en la boca del animal.',
+      recto: { verbo: 'Amansar', efecto: 'amansar',
+        texto: 'Bel no le pega. Le pone la mano encima hasta que se calma.' },
+      invertido: { verbo: 'Forzar', efecto: 'forzar',
+        texto: 'Usa la fuerza que sí tiene, y le cuesta más de lo que pensaba.' }
+    },
+    {
+      clave: 'colgado', num: 'XII', nombre: 'El Colgado', glifo: '⊥', tono: 'ambos',
+      lectura: 'Ver todo del revés. Quedarse quieto a propósito.',
+      recto: { verbo: 'Darlo vuelta', efecto: 'invertir',
+        texto: 'Bel mira la escena al revés y recién ahí entiende qué está pasando.' },
+      invertido: { verbo: 'Quedarse colgada', efecto: 'suspender',
+        texto: 'No hace nada, y el no hacer nada dura demasiado.' }
+    },
+    {
+      clave: 'muerte', num: 'XIII', nombre: 'La Muerte', glifo: '⚰', tono: 'sombra',
+      lectura: 'Lo que termina para que empiece otra cosa. Nunca es literal.',
+      recto: { verbo: 'Terminarlo', efecto: 'terminar',
+        texto: 'Bel cierra algo que venía arrastrando, y el aire cambia.' },
+      invertido: { verbo: 'Estirarlo', efecto: 'estirar',
+        texto: 'Le da una vuelta más a algo que ya estaba terminado.' }
+    },
+    {
+      clave: 'templanza', num: 'XIV', nombre: 'La Templanza', glifo: '⚱', tono: 'luz',
+      lectura: 'Mezclar en la medida justa. Bajar un cambio.',
+      recto: { verbo: 'Templar', efecto: 'templar',
+        texto: 'Bel afloja el ritmo hasta que las cosas se acomodan solas.' },
+      invertido: { verbo: 'Acelerar', efecto: 'acelerar',
+        texto: 'Va más rápido de lo que la situación aguanta.' }
+    },
+    {
+      clave: 'diablo', num: 'XV', nombre: 'El Diablo', glifo: '⛧', tono: 'sombra',
+      lectura: 'Lo que te ata y te gusta. La cadena floja.',
+      recto: { verbo: 'Aceptar el trato', efecto: 'pacto',
+        texto: 'Bel dice que sí a algo que sabe que después va a pagar.' },
+      invertido: { verbo: 'Cortar la cadena', efecto: 'cortar',
+        texto: 'Se saca de encima algo que llevaba tanto tiempo que ya no lo sentía.' }
+    },
+    {
+      clave: 'torre', num: 'XVI', nombre: 'La Torre', glifo: '△', tono: 'sombra',
+      lectura: 'El derrumbe que no se pide pero que hacía falta.',
+      recto: { verbo: 'Romper todo', efecto: 'derrumbe',
+        texto: 'Bel rompe. No con elegancia: rompe.' },
+      invertido: { verbo: 'Aguantar el techo', efecto: 'apuntalar',
+        texto: 'Sostiene con el hombro algo que se está viniendo abajo igual.' }
+    },
+    {
+      clave: 'estrella', num: 'XVII', nombre: 'La Estrella', glifo: '✷', tono: 'luz',
+      lectura: 'La esperanza después del derrumbe. El agua limpia.',
+      recto: { verbo: 'Confiar', efecto: 'esperanza',
+        texto: 'Bel se permite pensar que esto puede salir bien.' },
+      invertido: { verbo: 'Perder la fe', efecto: 'desanimo',
+        texto: 'Sigue caminando, pero ya sin esperar nada.' }
+    },
+    {
+      clave: 'luna', num: 'XVIII', nombre: 'La Luna', glifo: '☽', tono: 'sombra',
+      lectura: 'Lo que se ve mal de noche. El engaño y el sueño.',
+      recto: { verbo: 'Entrar en el sueño', efecto: 'sueno',
+        texto: 'Bel deja de distinguir lo que pasa de lo que sueña, y avanza igual.' },
+      invertido: { verbo: 'Despertarse', efecto: 'despertar',
+        texto: 'Se sacude la cabeza y la feria vuelve a tener bordes.' }
+    },
+    {
+      clave: 'sol', num: 'XIX', nombre: 'El Sol', glifo: '☉', tono: 'luz',
+      lectura: 'Lo que se ve claro. Alegría sin doblez.',
+      recto: { verbo: 'Alumbrar', efecto: 'alumbrar',
+        texto: 'Todo queda a la vista, y lo que estaba a oscuras no aguanta la luz.' },
+      invertido: { verbo: 'Encandilar', efecto: 'encandilar',
+        texto: 'Hay tanta luz que tampoco se ve nada.' }
+    },
+    {
+      clave: 'juicio', num: 'XX', nombre: 'El Juicio', glifo: '♆', tono: 'ambos',
+      lectura: 'El llamado. Lo que estaba dormido se levanta.',
+      recto: { verbo: 'Llamar por su nombre', efecto: 'llamar',
+        texto: 'Bel dice el nombre en voz alta, y lo que se llama tiene que contestar.' },
+      invertido: { verbo: 'No contestar', efecto: 'callar',
+        texto: 'La llaman a ella. Se hace la que no escucha.' }
+    },
+    {
+      clave: 'mundo', num: 'XXI', nombre: 'El Mundo', glifo: '◎', tono: 'luz',
+      lectura: 'Cerrar la vuelta. Estar entera.',
+      recto: { verbo: 'Cerrar la vuelta', efecto: 'cerrar',
+        texto: 'Bel termina algo que había empezado hace mucho más que esta noche.' },
+      invertido: { verbo: 'Dejarlo abierto', efecto: 'abierto',
+        texto: 'Le falta poco y decide que le falte.' }
+    }
+  ];
+
+  var PORCLAVE = {};
+  CARTAS.forEach(function (c, i) { c.indice = i; PORCLAVE[c.clave] = c; });
+
+  function get(clave) { return PORCLAVE[clave] || null; }
+
+  // Cara de la carta según esté al derecho o invertida.
+  function cara(carta) {
+    return carta.invertida ? carta.arcano.invertido : carta.arcano.recto;
+  }
+
+  /* Una carta en juego: el arcano más su orientación. La orientación importa
+     tanto como la carta, igual que en una tirada de verdad. */
+  function instancia(clave, invertida) {
+    var a = get(clave);
+    if (!a) return null;
+    return {
+      arcano: a, clave: clave, invertida: !!invertida,
+      get nombre() { return a.nombre; },
+      get glifo() { return a.glifo; },
+      get num() { return a.num; }
+    };
+  }
+
+  function todas() { return CARTAS.slice(); }
+  function claves() { return CARTAS.map(function (c) { return c.clave; }); }
+
+  return {
+    CARTAS: CARTAS, get: get, cara: cara,
+    instancia: instancia, todas: todas, claves: claves
+  };
+})();
+
+/* ===== js/dibujo.js ===== */
+/* Primitivas de dibujo compartidas por todas las escenas.
+   Nada de imágenes: la feria entera se dibuja con canvas, así pesa poco y
+   se puede animar cualquier cosa. Todas las medidas van en fracciones de la
+   pantalla, para que la composición aguante cualquier tamaño. */
+var Dib = (function () {
+  'use strict';
+
+  var cx = null, W = 0, H = 0, t = 0, luces = true;
+
+  function usar(ctx, w, h, tiempo, hayLuces) {
+    cx = ctx; W = w; H = h; t = tiempo;
+    luces = hayLuces !== false;
+  }
+  var X = function (u) { return W * u; };
+  var Y = function (v) { return H * v; };
+  var U = function (u) { return Math.min(W, H * 1.9) * u; };
+
+  /* --- fondo --- */
+
+  var estrellas = [];
+  function sembrar(n) {
+    estrellas = [];
+    n = n || Math.round(W * H / 8000);
+    for (var i = 0; i < n; i++) {
+      estrellas.push({
+        x: Math.random() * W, y: Math.random() * H * .70,
+        r: Math.random() * 1.2 + .25, f: Math.random() * 6.28,
+        v: .4 + Math.random() * 1.1
+      });
+    }
+  }
+
+  // paleta: cada escena puede teñir su cielo
+  function cielo(paleta) {
+    var p = paleta || ['#070912', '#0c0f1f', '#171227', '#0a0810'];
+    var g = cx.createLinearGradient(0, 0, 0, H);
+    g.addColorStop(0, p[0]); g.addColorStop(.42, p[1]);
+    g.addColorStop(.72, p[2]); g.addColorStop(1, p[3]);
+    cx.fillStyle = g; cx.fillRect(0, 0, W, H);
+
+    cx.save();
+    for (var i = 0; i < estrellas.length; i++) {
+      var e = estrellas[i];
+      cx.globalAlpha = .2 + .5 * (0.5 + 0.5 * Math.sin(t * e.v + e.f));
+      cx.fillStyle = '#cfd6ee';
+      cx.beginPath(); cx.arc(e.x, e.y, e.r, 0, 6.2832); cx.fill();
+    }
+    cx.restore();
+  }
+
+  /* Luna con su fase real: iluminacion 0 (nueva) a 1 (llena).
+     creciente decide de que lado queda la sombra. */
+  function luna(u, v, radio, iluminacion, creciente) {
+    var lx = X(u), ly = Y(v), lr = U(radio);
+    var brillo = .05 + .17 * iluminacion;
+    var halo = cx.createRadialGradient(lx, ly, lr * .8, lx, ly, lr * 4.2);
+    halo.addColorStop(0, 'rgba(214,206,184,' + brillo + ')');
+    halo.addColorStop(.4, 'rgba(214,206,184,' + (brillo * .3) + ')');
+    halo.addColorStop(1, 'rgba(214,206,184,0)');
+    cx.fillStyle = halo;
+    cx.beginPath(); cx.arc(lx, ly, lr * 4.2, 0, 6.2832); cx.fill();
+
+    cx.fillStyle = '#ded4bc';
+    cx.beginPath(); cx.arc(lx, ly, lr, 0, 6.2832); cx.fill();
+    // La sombra es otro circulo corrido: da media luna, gibosa o nueva.
+    if (iluminacion < .98) {
+      var corr = iluminacion * 2.05 * lr * (creciente ? -1 : 1);
+      cx.save();
+      cx.beginPath(); cx.arc(lx, ly, lr, 0, 6.2832); cx.clip();
+      cx.fillStyle = 'rgba(12,15,31,.94)';
+      cx.beginPath(); cx.arc(lx + corr, ly, lr * 1.02, 0, 6.2832); cx.fill();
+      cx.restore();
+    }
+  }
+
+  /* --- luz --- */
+
+  // Bombita: punto nítido con halo corto. El desenfoque largo las volvía manchas.
+  function bombita(x, y, r, col, p) {
+    if (!luces) {
+      cx.fillStyle = '#191522';
+      cx.beginPath(); cx.arc(x, y, r * .85, 0, 6.2832); cx.fill();
+      return;
+    }
+    cx.save(); cx.globalCompositeOperation = 'lighter';
+    var g = cx.createRadialGradient(x, y, 0, x, y, r * 4.5);
+    g.addColorStop(0, 'rgba(' + col + ',' + (.42 * p) + ')');
+    g.addColorStop(.45, 'rgba(' + col + ',' + (.13 * p) + ')');
+    g.addColorStop(1, 'rgba(' + col + ',0)');
+    cx.fillStyle = g;
+    cx.beginPath(); cx.arc(x, y, r * 4.5, 0, 6.2832); cx.fill();
+    cx.fillStyle = 'rgba(255,242,220,' + (.95 * p) + ')';
+    cx.beginPath(); cx.arc(x, y, r, 0, 6.2832); cx.fill();
+    cx.restore();
+  }
+
+  // Resplandor suelto, para focos y bocas de carpa.
+  function resplandor(x, y, radio, col, alfa) {
+    cx.save(); cx.globalCompositeOperation = 'lighter';
+    var g = cx.createRadialGradient(x, y, 0, x, y, radio);
+    g.addColorStop(0, 'rgba(' + col + ',' + alfa + ')');
+    g.addColorStop(.45, 'rgba(' + col + ',' + (alfa * .35) + ')');
+    g.addColorStop(1, 'rgba(' + col + ',0)');
+    cx.fillStyle = g;
+    cx.beginPath(); cx.arc(x, y, radio, 0, 6.2832); cx.fill();
+    cx.restore();
+  }
+
+  var COLORES_GUIRNALDA = ['255,196,128', '196,96,104', '150,196,176'];
+
+  function guirnalda(u1, v1, u2, v2, caida, semilla) {
+    var x1 = X(u1), y1 = Y(v1), x2 = X(u2), y2 = Y(v2);
+    cx.save();
+    cx.strokeStyle = 'rgba(8,6,16,.95)'; cx.lineWidth = 1.4;
+    cx.beginPath(); cx.moveTo(x1, y1);
+    cx.quadraticCurveTo((x1 + x2) / 2, (y1 + y2) / 2 + caida, x2, y2);
+    cx.stroke();
+    var N = Math.max(7, Math.round(Math.abs(x2 - x1) / 38));
+    for (var i = 0; i <= N; i++) {
+      var u = i / N, iu = 1 - u;
+      var x = iu * iu * x1 + 2 * iu * u * ((x1 + x2) / 2) + u * u * x2;
+      var y = iu * iu * y1 + 2 * iu * u * ((y1 + y2) / 2 + caida) + u * u * y2;
+      if (luces && Math.sin(t * 2.2 + i * .9 + semilla) < -.78) continue;  // quemada
+      var p = .5 + .5 * (0.5 + 0.5 * Math.sin(t * 2.9 + i * 1.3 + semilla));
+      bombita(x, y, 1.9, COLORES_GUIRNALDA[i % 3], p);
+    }
+    cx.restore();
+  }
+
+  /* --- construcciones --- */
+
+  function carpa(u, vBase, ancho, alto, encendida) {
+    var x = X(u), base = Y(vBase), an = U(ancho), al = H * alto;
+    cx.save();
+    var cima = base - al * 1.12, hombro = base - al * .42;
+    var gajos = 7;
+    for (var i = 0; i < gajos; i++) {
+      var u0 = i / gajos, u1 = (i + 1) / gajos;
+      var x0 = x - an / 2 + an * u0, x1 = x - an / 2 + an * u1;
+      cx.fillStyle = (i % 2 === 0) ? '#0b0812' : '#141021';
+      cx.beginPath();
+      cx.moveTo(x, cima);
+      cx.lineTo(x0, hombro + Math.pow(Math.abs(u0 - .5) * 2, 2) * al * .16);
+      cx.lineTo(x1, hombro + Math.pow(Math.abs(u1 - .5) * 2, 2) * al * .16);
+      cx.closePath(); cx.fill();
+    }
+    cx.fillStyle = '#0b0812';
+    cx.beginPath();
+    cx.moveTo(x - an / 2, hombro + al * .16); cx.lineTo(x - an / 2, base);
+    cx.lineTo(x + an / 2, base); cx.lineTo(x + an / 2, hombro + al * .16);
+    cx.closePath(); cx.fill();
+
+    if (encendida && luces) {
+      var g = cx.createLinearGradient(x, hombro, x, base);
+      g.addColorStop(0, 'rgba(232,163,61,.5)');
+      g.addColorStop(1, 'rgba(168,50,63,.10)');
+      cx.fillStyle = g;
+      cx.beginPath();
+      cx.moveTo(x - an * .15, base); cx.lineTo(x - an * .11, hombro + al * .08);
+      cx.quadraticCurveTo(x, hombro - al * .02, x + an * .11, hombro + al * .08);
+      cx.lineTo(x + an * .15, base); cx.closePath(); cx.fill();
+    }
+    cx.strokeStyle = '#0b0812'; cx.lineWidth = 2;
+    cx.beginPath(); cx.moveTo(x, cima); cx.lineTo(x, cima - al * .16); cx.stroke();
+    cx.fillStyle = luces ? '#a8323f' : '#17121f';
+    var on = Math.sin(t * 2.2 + x) * 3;
+    cx.beginPath();
+    cx.moveTo(x, cima - al * .16); cx.lineTo(x + 13 + on, cima - al * .115);
+    cx.lineTo(x, cima - al * .07); cx.closePath(); cx.fill();
+    cx.restore();
+  }
+
+  function portal(u, vBase, ancho, alto, rotulo) {
+    var x = X(u), base = Y(vBase), an = U(ancho), al = H * alto;
+    cx.save();
+    var gr = an * .062;
+    cx.fillStyle = '#0b0812';
+    cx.fillRect(x - an / 2, base - al, gr, al);
+    cx.fillRect(x + an / 2 - gr, base - al, gr, al);
+    cx.beginPath();
+    cx.moveTo(x - an / 2, base - al);
+    cx.quadraticCurveTo(x, base - al * 1.46, x + an / 2, base - al);
+    cx.lineTo(x + an / 2, base - al * .88);
+    cx.quadraticCurveTo(x, base - al * 1.30, x - an / 2, base - al * .88);
+    cx.closePath(); cx.fill();
+
+    if (luces) {
+      var N = 17;
+      for (var i = 0; i <= N; i++) {
+        var uu = i / N, iu = 1 - uu;
+        var bx = iu * iu * (x - an / 2) + 2 * iu * uu * x + uu * uu * (x + an / 2);
+        var by = iu * iu * (base - al) + 2 * iu * uu * (base - al * 1.38) + uu * uu * (base - al);
+        if (i === 5 && Math.sin(t * 7) < 0) continue;      // una que falla
+        bombita(bx, by, 2.1, '255,206,140', .55 + .45 * Math.sin(t * 2.4 + i * .7));
+      }
+      if (rotulo) {
+        cx.save();
+        cx.globalCompositeOperation = 'lighter';
+        cx.font = '600 ' + Math.round(al * .17) + "px 'Cormorant Garamond',serif";
+        cx.textAlign = 'center'; cx.textBaseline = 'middle';
+        cx.shadowColor = 'rgba(255,168,64,.9)'; cx.shadowBlur = 26;
+        cx.fillStyle = 'rgba(255,200,116,.92)';
+        cx.fillText(rotulo, x, base - al * 1.08);
+        if (Math.sin(t * 11) < -.2) {
+          cx.shadowBlur = 0; cx.fillStyle = 'rgba(10,8,16,.85)';
+          cx.fillText(rotulo.slice(0, -2) + ' ' + rotulo.slice(-1), x, base - al * 1.08);
+        }
+        cx.restore();
+      }
+      cx.save();
+      cx.globalCompositeOperation = 'lighter';
+      var g2 = cx.createRadialGradient(x, base, 0, x, base, an * .72);
+      g2.addColorStop(0, 'rgba(255,176,84,.11)');
+      g2.addColorStop(.45, 'rgba(255,166,78,.04)');
+      g2.addColorStop(1, 'rgba(255,166,78,0)');
+      cx.fillStyle = g2;
+      cx.beginPath(); cx.ellipse(x, base + al * .05, an * .72, al * .13, 0, 0, 6.2832); cx.fill();
+      cx.restore();
+    }
+    cx.restore();
+  }
+
+  function vueltaAlMundo(u, v, radio, giro) {
+    var cxp = X(u), cyp = Y(v), R = U(radio);
+    cx.save();
+    cx.strokeStyle = '#080610'; cx.lineWidth = Math.max(2, R * .028);
+    cx.beginPath(); cx.arc(cxp, cyp, R, 0, 6.2832); cx.stroke();
+    cx.beginPath(); cx.arc(cxp, cyp, R * .92, 0, 6.2832); cx.stroke();
+    var N = 16;
+    for (var i = 0; i < N; i++) {
+      var a = giro + i * 6.2832 / N;
+      var x = cxp + Math.cos(a) * R, y = cyp + Math.sin(a) * R;
+      cx.strokeStyle = '#080610'; cx.lineWidth = Math.max(1.2, R * .014);
+      cx.beginPath(); cx.moveTo(cxp, cyp); cx.lineTo(x, y); cx.stroke();
+      var cb = R * .07;
+      cx.fillStyle = '#080610'; cx.fillRect(x - cb / 2, y, cb, cb * 1.3);
+      if (Math.sin(t * 1.5 + i * 1.7) > -.55)
+        bombita(x, y, Math.max(1.3, R * .014), '255,198,120', .5 + .5 * Math.sin(t * 2.6 + i));
+    }
+    cx.strokeStyle = '#080610'; cx.lineWidth = Math.max(2.5, R * .042);
+    cx.beginPath();
+    cx.moveTo(cxp - R * .42, cyp + R * 1.42); cx.lineTo(cxp, cyp);
+    cx.lineTo(cxp + R * .42, cyp + R * 1.42); cx.stroke();
+    cx.beginPath();
+    cx.moveTo(cxp - R * .26, cyp + R * .9); cx.lineTo(cxp + R * .26, cyp + R * .9); cx.stroke();
+    cx.restore();
+  }
+
+  /* Calesita: techo cónico, caballos girando en perspectiva achatada. */
+  function calesita(u, vBase, ancho, alto, giro) {
+    var x = X(u), base = Y(vBase), an = U(ancho), al = H * alto;
+    cx.save();
+    // Plataforma.
+    cx.fillStyle = '#0b0812';
+    cx.beginPath(); cx.ellipse(x, base, an * .5, an * .10, 0, 0, 6.2832); cx.fill();
+    // Caballos y barras, ordenados por profundidad.
+    var N = 8, piezas = [];
+    for (var i = 0; i < N; i++) {
+      var a = giro + i * 6.2832 / N;
+      piezas.push({ a: a, z: Math.sin(a) });
+    }
+    piezas.sort(function (p, q) { return p.z - q.z; });
+    piezas.forEach(function (p) {
+      var px = x + Math.cos(p.a) * an * .40;
+      var py = base + Math.sin(p.a) * an * .085;
+      var sube = Math.sin(t * 2.2 + p.a * 2) * al * .045;
+      cx.strokeStyle = '#1b1626'; cx.lineWidth = Math.max(1.5, an * .008);
+      cx.beginPath(); cx.moveTo(px, py); cx.lineTo(px, py - al * .70); cx.stroke();
+      // Silueta de caballo, esquemática.
+      cx.fillStyle = '#0d0a15';
+      var cy = py - al * .28 + sube, cw = an * .075, ch = al * .10;
+      cx.beginPath();
+      cx.ellipse(px, cy, cw, ch * .55, 0, 0, 6.2832); cx.fill();
+      cx.beginPath();
+      cx.moveTo(px + cw * .55, cy - ch * .2);
+      cx.lineTo(px + cw * 1.05, cy - ch * .95);
+      cx.lineTo(px + cw * .72, cy - ch * 1.0);
+      cx.lineTo(px + cw * .30, cy - ch * .35);
+      cx.closePath(); cx.fill();
+      cx.strokeStyle = '#0d0a15'; cx.lineWidth = Math.max(1.2, an * .007);
+      [-.5, -.15, .2, .55].forEach(function (o) {
+        cx.beginPath();
+        cx.moveTo(px + cw * o, cy + ch * .35);
+        cx.lineTo(px + cw * o + cw * .12, cy + ch * .95);
+        cx.stroke();
+      });
+    });
+    // Techo cónico a gajos.
+    var cima = base - al;
+    for (var j = 0; j < 10; j++) {
+      var a0 = j / 10 * 6.2832, a1 = (j + 1) / 10 * 6.2832;
+      cx.fillStyle = (j % 2 === 0) ? '#12101d' : '#0a0812';
+      cx.beginPath();
+      cx.moveTo(x, cima - al * .22);
+      cx.lineTo(x + Math.cos(a0) * an * .52, base - al * .74 + Math.sin(a0) * an * .105);
+      cx.lineTo(x + Math.cos(a1) * an * .52, base - al * .74 + Math.sin(a1) * an * .105);
+      cx.closePath(); cx.fill();
+    }
+    // Bombitas del borde del techo.
+    for (var k = 0; k < 14; k++) {
+      var ak = k / 14 * 6.2832;
+      var bx = x + Math.cos(ak) * an * .52;
+      var by = base - al * .74 + Math.sin(ak) * an * .105;
+      if (Math.sin(ak) < -.55) continue;    // las de atrás no se ven
+      bombita(bx, by, 1.9, '255,200,132', .5 + .5 * Math.sin(t * 3 + k));
+    }
+    cx.restore();
+  }
+
+  /* --- ambiente --- */
+
+  function suelo(vHorizonte, charcos) {
+    var y0 = Y(vHorizonte) - 6;
+    var g = cx.createLinearGradient(0, y0, 0, H);
+    g.addColorStop(0, 'rgba(7,5,13,.5)');
+    g.addColorStop(.35, '#070510');
+    g.addColorStop(1, '#040308');
+    cx.fillStyle = g; cx.fillRect(0, y0, W, H - y0);
+    if (luces && charcos) {
+      cx.save(); cx.globalCompositeOperation = 'lighter';
+      charcos.forEach(function (c, i) {
+        var x = X(c[0]) + Math.sin(t * .45 + i * 2) * 4;
+        var y = Y(vHorizonte) + H * (.055 + i * .028);
+        var rx = U(.055 + c[1] * .18), ry = H * .012;
+        var gg = cx.createRadialGradient(x, y, 0, x, y, rx);
+        gg.addColorStop(0, 'rgba(255,178,92,' + (c[1] * .55) + ')');
+        gg.addColorStop(1, 'rgba(255,178,92,0)');
+        cx.fillStyle = gg;
+        cx.beginPath(); cx.ellipse(x, y, rx, ry, 0, 0, 6.2832); cx.fill();
+      });
+      cx.restore();
+    }
+  }
+
+  function niebla(v, alto, vel, alfa, tono) {
+    var y = Y(v);
+    cx.save(); cx.globalCompositeOperation = 'screen';
+    var off = (t * vel) % (W + 400) - 200;
+    for (var i = -1; i < 3; i++) {
+      var x = off + i * (W * .6);
+      var g = cx.createRadialGradient(x, y, 0, x, y, W * .4);
+      g.addColorStop(0, 'rgba(' + tono + ',' + alfa + ')');
+      g.addColorStop(1, 'rgba(' + tono + ',0)');
+      cx.fillStyle = g;
+      cx.beginPath(); cx.ellipse(x, y, W * .4, H * alto, 0, 0, 6.2832); cx.fill();
+    }
+    cx.restore();
+  }
+
+  /* --- figuras --- */
+
+  /* Bel de espaldas. escala en fracción de alto de pantalla. */
+  function bel(u, vBase, escala, contraluz) {
+    var base = Y(vBase), h = H * escala, x = X(u);
+    cx.save();
+    cx.fillStyle = '#030408';
+    cx.beginPath();
+    cx.moveTo(x - h * .185, base);
+    cx.quadraticCurveTo(x - h * .205, base - h * .42, x - h * .125, base - h * .60);
+    cx.quadraticCurveTo(x - h * .098, base - h * .70, x, base - h * .725);
+    cx.quadraticCurveTo(x + h * .098, base - h * .70, x + h * .125, base - h * .60);
+    cx.quadraticCurveTo(x + h * .205, base - h * .42, x + h * .185, base);
+    cx.closePath(); cx.fill();
+    cx.beginPath(); cx.arc(x, base - h * .815, h * .090, 0, 6.2832); cx.fill();
+    cx.beginPath();
+    cx.moveTo(x - h * .088, base - h * .83);
+    cx.quadraticCurveTo(x - h * .122, base - h * .70, x - h * .085, base - h * .615);
+    cx.quadraticCurveTo(x - h * .052, base - h * .585, x - h * .030, base - h * .612);
+    cx.quadraticCurveTo(x, base - h * .632, x + h * .030, base - h * .612);
+    cx.quadraticCurveTo(x + h * .052, base - h * .585, x + h * .085, base - h * .615);
+    cx.quadraticCurveTo(x + h * .122, base - h * .70, x + h * .088, base - h * .83);
+    cx.closePath(); cx.fill();
+    cx.save();
+    cx.globalAlpha = .5; cx.fillStyle = '#000';
+    cx.beginPath(); cx.ellipse(x, base + 2, h * .19, h * .026, 0, 0, 6.2832); cx.fill();
+    cx.restore();
+    if (luces && contraluz !== false) {
+      cx.globalCompositeOperation = 'lighter';
+      cx.strokeStyle = 'rgba(255,192,116,.34)'; cx.lineWidth = 1.8;
+      cx.beginPath();
+      cx.moveTo(x - h * .106, base - h * .60);
+      cx.quadraticCurveTo(x, base - h * .705, x + h * .106, base - h * .60);
+      cx.stroke();
+      cx.strokeStyle = 'rgba(255,192,116,.26)'; cx.lineWidth = 1.5;
+      cx.beginPath(); cx.arc(x, base - h * .815, h * .082, -2.6, -.5); cx.stroke();
+    }
+    cx.restore();
+  }
+
+  /* La presencia: una figura que no termina de tener forma.
+     intensidad 0 a 1 la hace más definida y más cerca. */
+  function presencia(u, vBase, escala, intensidad) {
+    var base = Y(vBase), h = H * escala, x = X(u);
+    var q = Math.max(0, Math.min(1, intensidad));
+    cx.save();
+    // Se dibuja como varias siluetas apenas corridas: nunca cierra en un borde.
+    for (var c = 0; c < 3; c++) {
+      var off = Math.sin(t * 1.3 + c * 2.1) * h * .012 * (1 + c);
+      cx.globalAlpha = (c === 0 ? .85 : .28) * (.35 + .65 * q);
+      cx.fillStyle = c === 0 ? '#04040a' : '#160d16';
+      cx.beginPath();
+      cx.moveTo(x - h * .17 + off, base);
+      cx.quadraticCurveTo(x - h * .19 + off, base - h * .45, x - h * .10 + off, base - h * .64);
+      cx.quadraticCurveTo(x - h * .07 + off, base - h * .74, x + off, base - h * .78);
+      cx.quadraticCurveTo(x + h * .07 + off, base - h * .74, x + h * .10 + off, base - h * .64);
+      cx.quadraticCurveTo(x + h * .19 + off, base - h * .45, x + h * .17 + off, base);
+      cx.closePath(); cx.fill();
+      cx.beginPath();
+      cx.arc(x + off, base - h * .86, h * .075, 0, 6.2832); cx.fill();
+    }
+    cx.globalAlpha = 1;
+    // Donde deberían ir los ojos no hay ojos: hay dos huecos más oscuros.
+    if (q > .35) {
+      cx.fillStyle = 'rgba(0,0,0,' + (.5 * q) + ')';
+      cx.beginPath(); cx.ellipse(x - h * .028, base - h * .868, h * .017, h * .026, 0, 0, 6.2832); cx.fill();
+      cx.beginPath(); cx.ellipse(x + h * .028, base - h * .868, h * .017, h * .026, 0, 0, 6.2832); cx.fill();
+    }
+    // Le come la luz alrededor.
+    cx.globalCompositeOperation = 'multiply';
+    var g = cx.createRadialGradient(x, base - h * .45, 0, x, base - h * .45, h * .55);
+    g.addColorStop(0, 'rgba(30,26,38,' + (.55 * q) + ')');
+    g.addColorStop(1, 'rgba(255,255,255,0)');
+    cx.fillStyle = g;
+    cx.beginPath(); cx.arc(x, base - h * .45, h * .55, 0, 6.2832); cx.fill();
+    cx.restore();
+  }
+
+  /* Poste de luz, para poblar el camino. */
+  function poste(u, vBase, alto) {
+    var x = X(u), base = Y(vBase), al = H * alto;
+    cx.save();
+    cx.strokeStyle = '#0a0812'; cx.lineWidth = Math.max(2, al * .022);
+    cx.beginPath(); cx.moveTo(x, base); cx.lineTo(x, base - al); cx.stroke();
+    cx.beginPath();
+    cx.moveTo(x, base - al);
+    cx.quadraticCurveTo(x + al * .10, base - al * 1.06, x + al * .16, base - al * .99);
+    cx.stroke();
+    bombita(x + al * .16, base - al * .97, Math.max(2, al * .022), '255,196,120',
+      .55 + .45 * Math.sin(t * 1.7 + x));
+    if (luces) resplandor(x + al * .16, base - al * .97, al * .5, '255,180,90', .10);
+    cx.restore();
+  }
+
+  /* Banderines triangulares colgando de un hilo. */
+  function banderines(u1, v1, u2, v2, caida) {
+    var x1 = X(u1), y1 = Y(v1), x2 = X(u2), y2 = Y(v2);
+    cx.save();
+    cx.strokeStyle = 'rgba(8,6,16,.9)'; cx.lineWidth = 1.2;
+    cx.beginPath(); cx.moveTo(x1, y1);
+    cx.quadraticCurveTo((x1 + x2) / 2, (y1 + y2) / 2 + caida, x2, y2);
+    cx.stroke();
+    var N = Math.max(6, Math.round(Math.abs(x2 - x1) / 44));
+    var cols = ['#7d2230', '#4a4a2a', '#2f3a52'];
+    for (var i = 0; i < N; i++) {
+      var u = (i + .5) / N, iu = 1 - u;
+      var x = iu * iu * x1 + 2 * iu * u * ((x1 + x2) / 2) + u * u * x2;
+      var y = iu * iu * y1 + 2 * iu * u * ((y1 + y2) / 2 + caida) + u * u * y2;
+      var ond = Math.sin(t * 1.6 + i * .8) * 3;
+      cx.fillStyle = luces ? cols[i % 3] : '#14111c';
+      cx.globalAlpha = luces ? .55 : 1;
+      cx.beginPath();
+      cx.moveTo(x - 9, y); cx.lineTo(x + 9, y);
+      cx.lineTo(x + ond, y + 17); cx.closePath(); cx.fill();
+    }
+    cx.restore();
+  }
+
+  /* Viñeta que se cierra: sube con la tensión de la escena. */
+  function vineta(fuerza) {
+    var g = cx.createRadialGradient(W / 2, H * .45, Math.min(W, H) * (.78 - .34 * fuerza),
+      W / 2, H * .45, Math.max(W, H) * .82);
+    g.addColorStop(0, 'rgba(3,4,8,0)');
+    g.addColorStop(1, 'rgba(3,4,8,' + (.45 + .45 * fuerza) + ')');
+    cx.fillStyle = g; cx.fillRect(0, 0, W, H);
+  }
+
+  /* Partículas de ceniza o polvo flotando. */
+  var motas = [];
+  function sembrarMotas(n) {
+    motas = [];
+    for (var i = 0; i < (n || 40); i++) {
+      motas.push({
+        x: Math.random(), y: Math.random(),
+        v: .004 + Math.random() * .012,
+        d: Math.random() * 6.28, r: .6 + Math.random() * 1.4
+      });
+    }
+  }
+  function polvo(alfa, tono) {
+    cx.save();
+    cx.fillStyle = 'rgba(' + (tono || '220,200,170') + ',' + (alfa || .16) + ')';
+    motas.forEach(function (m) {
+      var y = (m.y - t * m.v) % 1; if (y < 0) y += 1;
+      var x = m.x + Math.sin(t * .5 + m.d) * .012;
+      cx.beginPath(); cx.arc(X(x), Y(y), m.r, 0, 6.2832); cx.fill();
+    });
+    cx.restore();
+  }
+
+  return {
+    usar: usar, X: X, Y: Y, U: U,
+    sembrar: sembrar, sembrarMotas: sembrarMotas,
+    cielo: cielo, luna: luna,
+    bombita: bombita, resplandor: resplandor, guirnalda: guirnalda,
+    carpa: carpa, portal: portal, vueltaAlMundo: vueltaAlMundo, calesita: calesita,
+    suelo: suelo, niebla: niebla, polvo: polvo,
+    bel: bel, presencia: presencia, poste: poste, banderines: banderines,
+    vineta: vineta
+  };
+})();
+
+/* ===== js/escenas.js ===== */
+/* Las atracciones de la feria. Cada una es un Arcano Mayor y se dibuja entera
+   con canvas. La función pinta(e) recibe el estado del juego para poder
+   reaccionar: la presencia se acerca, las luces se apagan, la tensión sube. */
+var Escenas = (function () {
+  'use strict';
+
+  var D = Dib;
+
+  var X = function (u) { return D.X(u); };
+  var Y = function (v) { return D.Y(v); };
+  var U = function (u) { return D.U(u); };
+
+  /* Cielos: cada atracción tiene el suyo, así el recorrido no se vuelve monótono. */
+  var CIELOS = {
+    noche:   ['#070912', '#0c0f1f', '#171227', '#0a0810'],
+    frio:    ['#05080f', '#091320', '#0f1a2a', '#070a10'],
+    enfermo: ['#080d0b', '#0d1712', '#14201a', '#07100c'],
+    rojo:    ['#0d0709', '#160a10', '#1e0d14', '#0b0509'],
+    violeta: ['#0a0812', '#120f22', '#1b1430', '#0a0714']
+  };
+
+  function ctx() { return arguments; }
+
+  /* --- helpers locales --- */
+
+  // Estructura metálica de vigas cruzadas, para torres y armazones.
+  function armazon(c, x, base, alto, ancho, tramos) {
+    c.save();
+    c.strokeStyle = '#0a0812';
+    c.lineWidth = Math.max(2, ancho * .045);
+    var paso = alto / tramos;
+    for (var i = 0; i < tramos; i++) {
+      var y0 = base - i * paso, y1 = base - (i + 1) * paso;
+      var a0 = ancho * (1 - i / tramos * .42), a1 = ancho * (1 - (i + 1) / tramos * .42);
+      c.beginPath();
+      c.moveTo(x - a0 / 2, y0); c.lineTo(x - a1 / 2, y1);
+      c.moveTo(x + a0 / 2, y0); c.lineTo(x + a1 / 2, y1);
+      c.moveTo(x - a0 / 2, y0); c.lineTo(x + a1 / 2, y1);
+      c.moveTo(x + a0 / 2, y0); c.lineTo(x - a1 / 2, y1);
+      c.moveTo(x - a1 / 2, y1); c.lineTo(x + a1 / 2, y1);
+      c.stroke();
+    }
+    c.restore();
+  }
+
+  /* ==================== 0 · LA ENTRADA · El Loco ==================== */
+
+  function entrada(e) {
+    var c = e.cx, hz = .70;
+    D.cielo(CIELOS.noche);
+    D.luna(.86, .16, .028, e.luna.iluminacion, e.luna.creciente);
+
+    D.vueltaAlMundo(.13, .36, .080, e.t * .12);
+    D.carpa(.40, hz, .075, .12, false);
+    D.carpa(.86, hz, .100, .175, false);
+    D.carpa(.97, hz, .078, .135, true);
+
+    D.guirnalda(.02, .28, .26, .38, 28, 0);
+    D.guirnalda(.30, .38, .58, .34, 30, 2.2);
+
+    D.portal(.66, hz, .150, .27, 'KERMÉS');
+    D.suelo(hz, [[.13, .10], [.66, .20], [.86, .11]]);
+    D.niebla(.79, .075, 10, .045, '150,170,190');
+    D.bel(.53, hz + .012, .195, true);
+    D.niebla(.93, .055, 17, .04, '190,160,150');
+  }
+
+  /* ==================== X · LA VUELTA AL MUNDO ==================== */
+
+  function rueda(e) {
+    var c = e.cx, hz = .78;
+    D.cielo(CIELOS.frio);
+    D.luna(.14, .13, .026, e.luna.iluminacion, e.luna.creciente);
+
+    // La rueda ocupa casi todo: se la ve desde abajo.
+    D.vueltaAlMundo(.55, .40, .30, e.t * .09);
+
+    // Una cabina se soltó y quedó en el piso.
+    c.save();
+    c.fillStyle = '#0a0812';
+    var cx0 = X(.18), cy0 = Y(hz) - U(.012);
+    c.translate(cx0, cy0); c.rotate(-.4);
+    c.fillRect(-U(.028), -U(.030), U(.056), U(.062));
+    c.restore();
+
+    D.poste(.86, hz, .16);
+    D.suelo(hz, [[.55, .22], [.86, .10]]);
+    D.niebla(.84, .07, 8, .05, '150,180,200');
+    D.bel(.30, hz + .01, .19, true);
+    D.polvo(.10, '200,215,235');
+  }
+
+  /* ==================== XVI · LA TORRE ==================== */
+
+  function torre(e) {
+    var c = e.cx, hz = .82;
+    D.cielo(CIELOS.rojo);
+
+    var x = X(.52), base = Y(hz), alto = Y(hz) - Y(.08);
+    armazon(c, x, base, alto, U(.15), 9);
+
+    // El carro colgando a mitad de altura, oscilando apenas.
+    var yc = Y(.34) + Math.sin(e.t * .8) * Y(.006);
+    c.save();
+    c.strokeStyle = '#0a0812'; c.lineWidth = 2;
+    c.beginPath(); c.moveTo(x, Y(.10)); c.lineTo(x, yc); c.stroke();
+    c.fillStyle = '#0c0912';
+    c.fillRect(x - U(.048), yc, U(.096), U(.028));
+    // Asientos vacíos.
+    c.fillStyle = '#171220';
+    for (var i = 0; i < 4; i++)
+      c.fillRect(x - U(.040) + i * U(.021), yc + U(.004), U(.014), U(.018));
+    c.restore();
+
+    // Luces rojas de baliza, subiendo por la estructura.
+    for (var j = 0; j < 7; j++) {
+      var yb = Y(.12 + j * .085);
+      var enc = Math.sin(e.t * 2.4 - j * .6) > .1;
+      if (enc) D.bombita(x - U(.062) + (j % 2) * U(.124), yb, 2.2, '220,70,80', .8);
+    }
+    // Resplandor rojo detrás de la torre.
+    D.resplandor(x, Y(.30), U(.42), '150,40,55', .10);
+
+    D.carpa(.14, hz, .09, .13, false);
+    D.suelo(hz, [[.52, .14]]);
+    D.niebla(.86, .06, 12, .05, '190,150,160');
+    D.bel(.80, hz + .012, .20, true);
+    D.polvo(.12, '220,190,180');
+  }
+
+  /* ==================== XVIII · EL LABERINTO DE ESPEJOS ==================== */
+
+  function espejos(e) {
+    var c = e.cx, hz = .80;
+    D.cielo(CIELOS.violeta);
+    D.luna(.78, .14, .030, e.luna.iluminacion, e.luna.creciente);
+
+    // Fachada: paneles de espejo que devuelven reflejos deformados.
+    var x0 = X(.16), x1 = X(.84), base = Y(hz), alto = Y(hz) - Y(.26);
+    var n = 9, an = (x1 - x0) / n;
+    for (var i = 0; i < n; i++) {
+      var px = x0 + i * an;
+      var brillo = .04 + .10 * (0.5 + 0.5 * Math.sin(e.t * .7 + i * 1.4));
+      var g = c.createLinearGradient(px, base - alto, px + an, base);
+      g.addColorStop(0, 'rgba(150,160,210,' + brillo + ')');
+      g.addColorStop(.5, 'rgba(40,36,66,.55)');
+      g.addColorStop(1, 'rgba(120,130,180,' + (brillo * .6) + ')');
+      c.fillStyle = g;
+      c.fillRect(px + 2, base - alto, an - 4, alto);
+      c.strokeStyle = '#0a0812'; c.lineWidth = 3;
+      c.strokeRect(px + 2, base - alto, an - 4, alto);
+    }
+
+    // El reflejo de Bel, repetido y desfasado: uno de más.
+    var reflejos = [3, 5, 6];
+    reflejos.forEach(function (i, k) {
+      var px = x0 + i * an + an / 2;
+      var esc = .13 - k * .006;
+      var demora = k * 0.55;
+      c.save();
+      c.globalAlpha = .5 - k * .12;
+      D.bel(px / D.X(1), hz - .015, esc, false);
+      c.restore();
+      // El tercero se mueve cuando los otros ya se quedaron quietos.
+      if (k === 2 && Math.sin(e.t * .5) > .3) {
+        c.save(); c.globalAlpha = .3;
+        D.bel((px + Math.sin(e.t * 2) * U(.02)) / D.X(1), hz - .015, esc, false);
+        c.restore();
+      }
+    });
+
+    // Marquesina con bombitas.
+    c.save();
+    c.fillStyle = '#0a0812';
+    c.beginPath();
+    c.moveTo(x0 - U(.02), base - alto);
+    c.lineTo(X(.5), base - alto - Y(.07));
+    c.lineTo(x1 + U(.02), base - alto);
+    c.closePath(); c.fill();
+    c.restore();
+    for (var b = 0; b <= 12; b++) {
+      var u = b / 12;
+      var bx = x0 - U(.02) + (x1 - x0 + U(.04)) * u;
+      var by = base - alto - Y(.07) * (1 - Math.abs(u - .5) * 2);
+      D.bombita(bx, by, 2, '170,150,230', .5 + .5 * Math.sin(e.t * 2 + b));
+    }
+
+    D.suelo(hz, [[.5, .16]]);
+    D.niebla(.85, .06, 9, .06, '160,150,210');
+    D.polvo(.10, '190,180,230');
+  }
+
+  /* ==================== VII · LOS AUTITOS CHOCADORES ==================== */
+
+  function chocadores(e) {
+    var c = e.cx, hz = .86;
+    D.cielo(CIELOS.enfermo);
+
+    var yTecho = Y(.16), yFondo = Y(.50), yFrente = Y(hz);
+
+    // Techo de malla en perspectiva, apenas insinuado.
+    c.save();
+    c.strokeStyle = 'rgba(16,26,20,.9)'; c.lineWidth = 1;
+    for (var i = 0; i <= 12; i++) {
+      var u = i / 12;
+      c.beginPath();
+      c.moveTo(X(.22 + u * .56), yTecho);
+      c.lineTo(X(-.15 + u * 1.30), yFondo);
+      c.stroke();
+    }
+    for (var j = 0; j <= 4; j++) {
+      var v = j / 4;
+      var yy = yTecho + (yFondo - yTecho) * v;
+      var ext = .22 - v * .37;
+      c.beginPath(); c.moveTo(X(ext), yy); c.lineTo(X(1 - ext), yy); c.stroke();
+    }
+    c.restore();
+
+    // Pista en perspectiva.
+    c.save();
+    var g = c.createLinearGradient(0, yFondo, 0, yFrente);
+    g.addColorStop(0, '#101a14'); g.addColorStop(.5, '#0b1310'); g.addColorStop(1, '#060b08');
+    c.fillStyle = g;
+    c.beginPath();
+    c.moveTo(X(.20), yFondo); c.lineTo(X(.80), yFondo);
+    c.lineTo(X(1.10), yFrente); c.lineTo(X(-.10), yFrente);
+    c.closePath(); c.fill();
+    // Baranda del fondo.
+    c.fillStyle = '#070c09';
+    c.fillRect(X(.18), yFondo - U(.030), X(.64) - X(.0), U(.030));
+    c.restore();
+    for (var n = 0; n <= 9; n++) {
+      var nx = X(.20) + (X(.80) - X(.20)) * n / 9;
+      D.bombita(nx, yFondo - U(.030), 2.1, '150,240,190', .45 + .4 * Math.sin(e.t * 2 + n));
+    }
+    D.resplandor(X(.5), yFondo, U(.55), '90,190,140', .07);
+
+    /* Autito de tres cuartos: faldon, cuerpo, respaldo, volante y pantografo.
+       El tamano sale de la profundidad, asi la pista tiene fondo. */
+    function autito(u, prof, giro, vivo) {
+      var yy = yFondo + (yFrente - yFondo) * prof;
+      var esc = .55 + prof * .85;
+      var xx = X(.5) + (X(u) - X(.5)) * (.55 + prof * .8);
+      var an = U(.052) * esc;
+      c.save();
+      c.translate(xx, yy);
+      c.rotate(giro);
+      c.fillStyle = 'rgba(0,0,0,.45)';
+      c.beginPath(); c.ellipse(0, an * .30, an * 1.05, an * .30, 0, 0, 6.2832); c.fill();
+      c.fillStyle = vivo ? '#241320' : '#0c0b11';
+      c.beginPath(); c.ellipse(0, an * .10, an, an * .42, 0, 0, 6.2832); c.fill();
+      c.fillStyle = vivo ? '#160d16' : '#08080d';
+      c.beginPath(); c.ellipse(0, -an * .05, an * .80, an * .34, 0, 0, 6.2832); c.fill();
+      c.fillStyle = '#05050a';
+      c.beginPath();
+      c.moveTo(-an * .34, -an * .10);
+      c.lineTo(-an * .30, -an * .68);
+      c.lineTo(an * .16, -an * .68);
+      c.lineTo(an * .20, -an * .10);
+      c.closePath(); c.fill();
+      c.strokeStyle = '#05050a'; c.lineWidth = Math.max(1.2, an * .07);
+      c.beginPath(); c.ellipse(an * .42, -an * .26, an * .17, an * .07, -.5, 0, 6.2832); c.stroke();
+      c.strokeStyle = '#0a1410'; c.lineWidth = Math.max(1.2, an * .06);
+      c.beginPath();
+      c.moveTo(-an * .10, -an * .60);
+      c.lineTo(an * .10, (yTecho - yy) * .92);
+      c.stroke();
+      c.restore();
+      if (vivo) {
+        if (Math.sin(e.t * 8.5) > .74)
+          D.bombita(xx + an * .10, yy + (yTecho - yy) * .92, 2.8 * esc, '190,255,215', 1);
+        D.resplandor(xx, yy, an * 3.2, '110,210,160', .09);
+      }
+    }
+
+    autito(.30, .12, .35, false);
+    autito(.74, .22, -.6, false);
+    autito(.20, .48, 1.1, false);
+    autito(.86, .62, 2.4, false);
+    // El unico que anda, y anda solo.
+    autito(.5 + Math.sin(e.t * .32) * .30, .40 + Math.cos(e.t * .32) * .26,
+           Math.sin(e.t * .32) * .5 + .2, true);
+
+    D.niebla(.90, .045, 14, .045, '150,210,175');
+    D.bel(.10, hz + .04, .21, true);
+  }
+
+  /* ==================== XII · LAS HAMACAS (sillas voladoras) ==================== */
+
+  function hamacas(e) {
+    var c = e.cx, hz = .82;
+    D.cielo(CIELOS.frio);
+    D.luna(.20, .12, .024, e.luna.iluminacion, e.luna.creciente);
+
+    var cxp = X(.55), cyp = Y(.24), R = U(.20);
+    // Mástil central.
+    c.save();
+    c.strokeStyle = '#0a0812'; c.lineWidth = Math.max(3, U(.012));
+    c.beginPath(); c.moveTo(cxp, Y(hz)); c.lineTo(cxp, cyp); c.stroke();
+    // Corona.
+    c.beginPath(); c.ellipse(cxp, cyp, R, R * .22, 0, 0, 6.2832); c.stroke();
+    c.restore();
+
+    // Las sillas cuelgan quietas: nadie las está usando, pero una se mueve.
+    var N = 10;
+    var sillas = [];
+    for (var i = 0; i < N; i++) {
+      var a = i * 6.2832 / N + .3;
+      sillas.push({ a: a, z: Math.sin(a) });
+    }
+    sillas.sort(function (p, q) { return p.z - q.z; });
+    sillas.forEach(function (s, idx) {
+      var sx = cxp + Math.cos(s.a) * R;
+      var sy = cyp + Math.sin(s.a) * R * .22;
+      var viva = (idx === sillas.length - 2);
+      var balanceo = viva ? Math.sin(e.t * 1.1) * .16 : 0;
+      var largo = Y(.30);
+      var px = sx + Math.sin(balanceo) * largo;
+      var py = sy + Math.cos(balanceo) * largo;
+      c.save();
+      c.strokeStyle = '#0a0812'; c.lineWidth = 1.4;
+      c.beginPath(); c.moveTo(sx - U(.012), sy); c.lineTo(px - U(.010), py);
+      c.moveTo(sx + U(.012), sy); c.lineTo(px + U(.010), py);
+      c.stroke();
+      c.fillStyle = viva ? '#181120' : '#0b0812';
+      c.fillRect(px - U(.018), py, U(.036), U(.026));
+      c.fillRect(px - U(.018), py - U(.030), U(.006), U(.030));
+      c.fillRect(px + U(.012), py - U(.030), U(.006), U(.030));
+      c.restore();
+      if (viva) D.resplandor(px, py, U(.11), '150,180,220', .07);
+    });
+
+    D.banderines(.02, .30, .30, .36, 22);
+    D.poste(.90, hz, .17);
+    D.suelo(hz, [[.55, .12], [.90, .10]]);
+    D.niebla(.87, .055, 11, .05, '160,180,210');
+    D.bel(.24, hz + .01, .185, true);
+  }
+
+  /* ==================== XIX · LA CALESITA ==================== */
+
+  function calesita(e) {
+    var c = e.cx, hz = .84;
+    D.cielo(CIELOS.noche);
+
+    D.calesita(.50, hz, .42, .30, e.t * .32);
+    D.resplandor(X(.50), Y(hz - .13), U(.30), '255,190,110', .09);
+
+    D.banderines(.03, .34, .30, .40, 24);
+    D.banderines(.70, .40, .98, .33, 26);
+    D.carpa(.87, hz, .085, .13, false);
+    D.suelo(hz, [[.50, .24], [.87, .08]]);
+    D.niebla(.88, .05, 9, .045, '210,190,170');
+    D.bel(.16, hz + .01, .18, true);
+    D.polvo(.11, '235,215,180');
+  }
+
+  /* ==================== I · EL PUESTO DE TIRO ==================== */
+
+  function tiro(e) {
+    var c = e.cx, hz = .82;
+    D.cielo(CIELOS.noche);
+    D.carpa(.08, hz, .09, .13, false);
+    D.carpa(.93, hz, .085, .12, false);
+
+    var x0 = X(.20), x1 = X(.80), base = Y(hz), techo = Y(.26);
+    var mostrador = Y(.66);
+
+    // Caja del puesto y fondo iluminado: los patos se recortan contra el.
+    c.save();
+    c.fillStyle = '#0a0812';
+    c.fillRect(x0, techo, x1 - x0, base - techo);
+    var g = c.createLinearGradient(0, techo + U(.03), 0, mostrador);
+    g.addColorStop(0, 'rgba(255,186,96,.32)');
+    g.addColorStop(.6, 'rgba(214,120,70,.17)');
+    g.addColorStop(1, 'rgba(120,44,52,.10)');
+    c.fillStyle = g;
+    c.fillRect(x0 + U(.022), techo + U(.030), x1 - x0 - U(.044), mostrador - techo - U(.030));
+    c.restore();
+
+    // Tres hileras de patos en silueta, cada una a su ritmo y su sentido.
+    for (var f = 0; f < 3; f++) {
+      var yf = techo + U(.062) + f * U(.052);
+      var dir = f % 2 === 0 ? 1 : -1;
+      var paso = U(.115);
+      c.save();
+      c.beginPath();
+      c.rect(x0 + U(.025), techo + U(.030), x1 - x0 - U(.05), mostrador - techo - U(.030));
+      c.clip();
+      for (var i = -1; i < 8; i++) {
+        var d = (e.t * (7 + f * 4) * dir) % paso;
+        var px = x0 + U(.025) + i * paso + d;
+        var sube = Math.sin(e.t * 3 + i * 1.3 + f) * U(.004);
+        c.save();
+        c.translate(px, yf + sube);
+        if (dir < 0) c.scale(-1, 1);
+        c.fillStyle = '#0b0810';
+        c.beginPath(); c.ellipse(0, 0, U(.026), U(.014), 0, 0, 6.2832); c.fill();
+        c.beginPath();
+        c.moveTo(-U(.022), -U(.004));
+        c.lineTo(-U(.040), -U(.016));
+        c.lineTo(-U(.020), U(.006));
+        c.closePath(); c.fill();
+        c.beginPath(); c.ellipse(U(.016), -U(.017), U(.010), U(.011), 0, 0, 6.2832); c.fill();
+        c.fillRect(U(.008), -U(.020), U(.010), U(.016));
+        c.beginPath();
+        c.moveTo(U(.025), -U(.019));
+        c.lineTo(U(.038), -U(.015));
+        c.lineTo(U(.025), -U(.012));
+        c.closePath(); c.fill();
+        c.fillRect(-U(.001), U(.010), U(.002), U(.030));
+        c.restore();
+      }
+      c.restore();
+    }
+
+    // Mostrador con dos rifles apoyados.
+    c.save();
+    c.fillStyle = '#0d0a14';
+    c.fillRect(x0, mostrador, x1 - x0, U(.030));
+    [.36, .60].forEach(function (u) {
+      var rx = X(u);
+      c.strokeStyle = '#1c1626'; c.lineWidth = Math.max(2, U(.007));
+      c.beginPath();
+      c.moveTo(rx - U(.05), mostrador - U(.004));
+      c.lineTo(rx + U(.05), mostrador - U(.018));
+      c.stroke();
+      c.fillStyle = '#1c1626';
+      c.beginPath();
+      c.moveTo(rx - U(.05), mostrador - U(.004));
+      c.lineTo(rx - U(.032), mostrador - U(.008));
+      c.lineTo(rx - U(.036), mostrador + U(.010));
+      c.closePath(); c.fill();
+    });
+    c.restore();
+
+    // Peluches viejos colgando del alero; uno se balancea sin viento.
+    for (var p = 0; p < 7; p++) {
+      var px2 = x0 + U(.055) + p * U(.088);
+      var osc = (p === 4) ? Math.sin(e.t * 1.4) * .14 : 0;
+      c.save();
+      c.translate(px2, techo + U(.012));
+      c.rotate(osc);
+      c.strokeStyle = '#0a0812'; c.lineWidth = 1.2;
+      c.beginPath(); c.moveTo(0, 0); c.lineTo(0, U(.024)); c.stroke();
+      c.fillStyle = ['#2f1f28', '#232a38', '#332c24'][p % 3];
+      c.beginPath(); c.arc(0, U(.048), U(.017), 0, 6.2832); c.fill();
+      c.beginPath(); c.arc(0, U(.028), U(.011), 0, 6.2832); c.fill();
+      c.beginPath(); c.arc(-U(.008), U(.020), U(.005), 0, 6.2832); c.fill();
+      c.beginPath(); c.arc(U(.008), U(.020), U(.005), 0, 6.2832); c.fill();
+      c.restore();
+    }
+
+    // Alero y bombitas del frente.
+    c.save();
+    c.fillStyle = '#0a0812';
+    c.fillRect(x0 - U(.02), techo - U(.016), x1 - x0 + U(.04), U(.020));
+    c.restore();
+    for (var b = 0; b <= 11; b++)
+      D.bombita(x0 - U(.02) + (x1 - x0 + U(.04)) * b / 11, techo - U(.020), 2.2,
+        '255,200,130', .5 + .5 * Math.sin(e.t * 2.6 + b * .8));
+    D.resplandor(X(.5), Y(.46), U(.42), '255,170,90', .09);
+
+    D.suelo(hz, [[.5, .22]]);
+    D.niebla(.88, .05, 10, .045, '210,190,170');
+    D.bel(.50, hz + .05, .19, true);
+  }
+
+  /* ==================== II · LA CARPA DE LA VIDENTE ==================== */
+
+  function vidente(e) {
+    var c = e.cx;
+    // Interior: no hay cielo, hay lona.
+    var g = c.createRadialGradient(X(.5), Y(.42), 0, X(.5), Y(.42), D.X(.85));
+    g.addColorStop(0, '#1d1420');
+    g.addColorStop(.45, '#120c16');
+    g.addColorStop(1, '#07050a');
+    c.fillStyle = g; c.fillRect(0, 0, D.X(1), D.Y(1));
+
+    // Gajos de la lona convergiendo arriba.
+    c.save();
+    c.strokeStyle = 'rgba(50,36,54,.55)'; c.lineWidth = 2;
+    for (var i = 0; i <= 12; i++) {
+      c.beginPath();
+      c.moveTo(X(.5), Y(-.05));
+      c.lineTo(X(i / 12), Y(.62));
+      c.stroke();
+    }
+    c.restore();
+
+    // Mesa redonda con mantel.
+    var mx = X(.5), my = Y(.74);
+    c.save();
+    c.fillStyle = '#140d18';
+    c.beginPath(); c.ellipse(mx, my, U(.26), U(.075), 0, 0, 6.2832); c.fill();
+    c.fillStyle = '#0d0812';
+    c.beginPath();
+    c.moveTo(mx - U(.26), my);
+    c.quadraticCurveTo(mx - U(.24), Y(.99), mx - U(.19), Y(1.02));
+    c.lineTo(mx + U(.19), Y(1.02));
+    c.quadraticCurveTo(mx + U(.24), Y(.99), mx + U(.26), my);
+    c.closePath(); c.fill();
+    c.restore();
+
+    // Vela: es la única fuente de luz y late.
+    var vx = X(.30), vy = Y(.70);
+    var late = .85 + .15 * Math.sin(e.t * 7) + .06 * Math.sin(e.t * 17);
+    c.save();
+    c.fillStyle = '#241a1e';
+    c.fillRect(vx - U(.008), vy - U(.045), U(.016), U(.045));
+    c.restore();
+    D.resplandor(vx, vy - U(.055), U(.34) * late, '255,170,80', .22);
+    D.bombita(vx, vy - U(.052), 2.6 * late, '255,200,120', 1);
+
+    // Tres cartas boca abajo sobre el mantel.
+    [-1, 0, 1].forEach(function (k) {
+      var cxp = mx + k * U(.072), cyp = my - U(.012);
+      c.save();
+      c.translate(cxp, cyp);
+      c.rotate(k * .06 + Math.sin(e.t * .4 + k) * .012);
+      c.fillStyle = '#1a1424';
+      c.strokeStyle = '#4a3a2a'; c.lineWidth = 1.2;
+      c.beginPath();
+      if (c.roundRect) c.roundRect(-U(.028), -U(.042), U(.056), U(.084), 3);
+      else c.rect(-U(.028), -U(.042), U(.056), U(.084));
+      c.fill(); c.stroke();
+      // Dorso: una estrella simple.
+      c.strokeStyle = 'rgba(200,160,90,.35)'; c.lineWidth = 1;
+      c.beginPath();
+      c.moveTo(0, -U(.016)); c.lineTo(0, U(.016));
+      c.moveTo(-U(.014), 0); c.lineTo(U(.014), 0);
+      c.moveTo(-U(.010), -U(.011)); c.lineTo(U(.010), U(.011));
+      c.moveTo(-U(.010), U(.011)); c.lineTo(U(.010), -U(.011));
+      c.stroke();
+      c.restore();
+    });
+
+    // La vidente: solo se le ven las manos sobre la mesa.
+    c.save();
+    c.fillStyle = '#08060c';
+    c.beginPath();
+    c.moveTo(X(.5) - U(.13), Y(.62));
+    c.quadraticCurveTo(X(.5), Y(.44), X(.5) + U(.13), Y(.62));
+    c.lineTo(X(.5) + U(.15), Y(.72));
+    c.lineTo(X(.5) - U(.15), Y(.72));
+    c.closePath(); c.fill();
+    c.beginPath(); c.arc(X(.5), Y(.50), U(.045), 0, 6.2832); c.fill();
+    c.restore();
+    // Manos apenas iluminadas por la vela.
+    c.save();
+    c.fillStyle = 'rgba(190,150,120,.20)';
+    c.beginPath(); c.ellipse(mx - U(.10), my - U(.02), U(.026), U(.014), .2, 0, 6.2832); c.fill();
+    c.beginPath(); c.ellipse(mx + U(.10), my - U(.02), U(.026), U(.014), -.2, 0, 6.2832); c.fill();
+    c.restore();
+
+    D.polvo(.09, '220,190,150');
+  }
+
+  /* ==================== catálogo ==================== */
+
+  var CATALOGO = {
+    entrada:     { pinta: entrada,     arcano: 'loco',        titulo: 'La entrada',            sub: 'Arcano 0 · El Loco' },
+    rueda:       { pinta: rueda,       arcano: 'rueda',       titulo: 'La vuelta al mundo',    sub: 'Arcano X · La Rueda de la Fortuna' },
+    torre:       { pinta: torre,       arcano: 'torre',       titulo: 'La caída libre',        sub: 'Arcano XVI · La Torre' },
+    espejos:     { pinta: espejos,     arcano: 'luna',        titulo: 'El laberinto de espejos', sub: 'Arcano XVIII · La Luna' },
+    chocadores:  { pinta: chocadores,  arcano: 'carro',       titulo: 'Los autitos chocadores', sub: 'Arcano VII · El Carro' },
+    hamacas:     { pinta: hamacas,     arcano: 'colgado',     titulo: 'Las sillas voladoras',  sub: 'Arcano XII · El Colgado' },
+    calesita:    { pinta: calesita,    arcano: 'sol',         titulo: 'La calesita',           sub: 'Arcano XIX · El Sol' },
+    tiro:        { pinta: tiro,        arcano: 'mago',        titulo: 'El puesto de tiro',     sub: 'Arcano I · El Mago' },
+    vidente:     { pinta: vidente,     arcano: 'sacerdotisa', titulo: 'La carpa de la vidente', sub: 'Arcano II · La Sacerdotisa' }
+  };
+
+  // Las que se pueden recorrer libremente (la entrada y el cierre no cuentan).
+  var RECORRIBLES = ['rueda', 'torre', 'espejos', 'chocadores', 'hamacas', 'calesita', 'tiro'];
+
+  function get(clave) { return CATALOGO[clave]; }
+
+  return { CATALOGO: CATALOGO, RECORRIBLES: RECORRIBLES, get: get, CIELOS: CIELOS };
+})();
+
+/* ===== js/guion.js ===== */
+/* Contenido de la noche: la tirada de apertura, lo que pasa en cada atracción,
+   los encuentros y los finales.
+
+   La variación no está en el mapa sino en la tirada: tres cartas deciden qué
+   vino a buscar Bel, qué la está esperando y cómo puede cerrarse. Los mismos
+   lugares dan noches distintas. */
+var Guion = (function () {
+  'use strict';
+
+  var A = Arcanos;
+
+  /* ==================== la tirada de apertura ==================== */
+
+  var POSICIONES = [
+    { clave: 'busca',  titulo: 'Lo que vino a buscar' },
+    { clave: 'espera', titulo: 'Lo que la está esperando' },
+    { clave: 'cierre', titulo: 'Cómo puede cerrarse' }
+  ];
+
+  /* Qué significa cada arcano en cada posición. Si un arcano no está acá,
+     se usa su lectura general, así nunca falta texto. */
+  var LECTURAS = {
+    busca: {
+      loco: 'Nada en concreto. Salió a caminar y la feria estaba abierta.',
+      mago: 'Algo que sabe hacer y hace mucho que no hace.',
+      sacerdotisa: 'Una respuesta que ya tiene y no se anima a leer.',
+      emperatriz: 'Ganas. Las ganas de antes.',
+      emperador: 'Un límite propio, uno que pueda sostener.',
+      sumo: 'Permiso. De alguien, de cualquiera.',
+      enamorados: 'Decidirse de una vez por una de las dos cosas.',
+      carro: 'Empuje para arrancar algo que tiene parado.',
+      justicia: 'Que algo se ponga en su lugar.',
+      ermitano: 'Un rato sola donde nadie le pregunte nada.',
+      rueda: 'Que cambie algo. Cualquier cosa, pero que cambie.',
+      fuerza: 'Aguante para lo que viene.',
+      colgado: 'Mirar todo de otra manera.',
+      muerte: 'Terminar algo que viene arrastrando.',
+      templanza: 'Bajar un cambio sin sentir que abandona.',
+      diablo: 'Cortar con algo que le gusta y le hace mal.',
+      torre: 'Que se caiga de una vez lo que se está cayendo.',
+      estrella: 'Una razón para seguir.',
+      luna: 'Entender un sueño que se le repite.',
+      sol: 'Verse clara, aunque sea un rato.',
+      juicio: 'Que la llamen. Que alguien la nombre.',
+      mundo: 'Cerrar una vuelta que dejó abierta.'
+    },
+    espera: {
+      loco: 'Algo sin plan, que hace lo que se le ocurre.',
+      mago: 'Algo que la conoce mejor de lo que debería.',
+      sacerdotisa: 'Algo que sabe callarse y esperar.',
+      emperatriz: 'Algo que la quiere cuidar demasiado.',
+      emperador: 'Algo que da órdenes.',
+      sumo: 'Algo que le va a explicar cómo se hacen las cosas.',
+      enamorados: 'Algo que le va a pedir que elija.',
+      carro: 'Algo que viene rápido y de frente.',
+      justicia: 'Algo que le viene a cobrar.',
+      ermitano: 'Algo que se esconde y la deja buscar.',
+      rueda: 'Algo que cambia de forma cada vez que lo mira.',
+      fuerza: 'Algo que no se puede vencer, solo calmar.',
+      colgado: 'Algo que está al revés y no se mueve.',
+      muerte: 'Algo que quiere que termine.',
+      templanza: 'Algo que la va a convencer de a poco.',
+      diablo: 'Algo que le va a ofrecer un trato.',
+      torre: 'Algo que va a hacer ruido y romper.',
+      estrella: 'Algo que le va a dar esperanza falsa.',
+      luna: 'Algo que no se ve entero nunca.',
+      sol: 'Algo que se muestra de frente y encandila.',
+      juicio: 'Algo que la llama por su nombre.',
+      mundo: 'Algo que la quiere adentro para siempre.'
+    },
+    cierre: {
+      loco: 'Yéndose sin explicar nada.',
+      mago: 'Usando lo que trajo puesto.',
+      sacerdotisa: 'Callándose lo que vio.',
+      emperatriz: 'Cuidando algo que encontró acá.',
+      emperador: 'Poniendo un límite y no moviéndolo.',
+      sumo: 'Repitiendo un gesto viejo.',
+      enamorados: 'Eligiendo, y perdiendo lo otro.',
+      carro: 'Saliendo de una, sin mirar atrás.',
+      justicia: 'Pagando exactamente lo que debe.',
+      ermitano: 'Sola, con su propia luz.',
+      rueda: 'Como salga. No depende de ella.',
+      fuerza: 'Sin levantar la voz.',
+      colgado: 'Quedándose quieta hasta que pase.',
+      muerte: 'Dejando algo acá adentro.',
+      templanza: 'Sin apurarse.',
+      diablo: 'Aceptando un precio.',
+      torre: 'Rompiendo lo que haga falta.',
+      estrella: 'Confiando, aunque no tenga motivo.',
+      luna: 'Sin saber del todo qué pasó.',
+      sol: 'A la vista de todos.',
+      juicio: 'Diciendo un nombre en voz alta.',
+      mundo: 'Entera.'
+    }
+  };
+
+  function lectura(posicion, clave) {
+    var l = LECTURAS[posicion] && LECTURAS[posicion][clave];
+    return l || A.get(clave).lectura;
+  }
+
+  /* ==================== apertura ==================== */
+
+  function prologo(nombre, luna) {
+    return [
+      'Bel volvía caminando y agarró para el lado del baldío, que es más largo ' +
+      'pero está más tranquilo.',
+      'El baldío hace veinte años que es un baldío.',
+      'Esta noche hay una feria.',
+      'No una feria armándose ni una feria levantando: una feria abierta, ' +
+      'encendida, con la vuelta al mundo girando y la música saliendo de algún ' +
+      'lado, a esta hora, en un terreno donde no entra un camión hace dos décadas.',
+      'Y no hay nadie.',
+      'La boletería está iluminada. Adentro no hay nadie tampoco, pero sobre el ' +
+      'mostrador hay tres cartas boca abajo y un vuelto contado, en monedas, ' +
+      'apilado para alguien que todavía no llegó.',
+      '<em>' + luna.fase.charAt(0).toUpperCase() + luna.fase.slice(1) +
+      ' en ' + luna.signoNombre + '.</em> Bel lo sabe sin mirar el cielo, porque ' +
+      'hace años que lo sabe siempre.',
+      'Da vuelta la primera carta.'
+    ];
+  }
+
+  function tiradaTexto(cartas) {
+    return [
+      'Tres cartas sobre el mostrador de una boletería vacía.',
+      'Bel las lee como leería cualquier tirada: sin adornarla, sin suavizarla, ' +
+      'sin sacarle el filo.',
+      'Y esta le habla de esta noche.'
+    ];
+  }
+
+  function entrada(nombre) {
+    return [
+      'El molinete gira solo una vez, como si alguien acabara de pasar.',
+      'Adentro el aire está unos grados más caliente que afuera, y huele a ' +
+      'azúcar quemada y a lona mojada.',
+      'La feria se abre en abanico: la vuelta al mundo a la izquierda, las carpas ' +
+      'a la derecha, y en el fondo, apagada, la única que no tiene luces prendidas.',
+      'Bel puede ir a donde quiera. Nadie le va a decir que no.'
+    ];
+  }
+
+  /* ==================== las atracciones ==================== */
+
+  /* Cada atracción trae:
+       llegada   párrafos al entrar
+       acciones  lo que se puede hacer; cada una se hace una sola vez
+     Cada acción tiene: texto del botón, resultado, y qué provoca.
+       da: 'carta'      suma una carta a la mano
+       tension: n       cuánto acerca a la presencia
+       marca: 'clave'   deja una marca que el final va a leer */
+  var ATRACCIONES = {
+
+    rueda: {
+      llegada: [
+        'La vuelta al mundo gira despacio y no para nunca. Las cabinas suben ' +
+        'vacías, llegan arriba, bajan vacías.',
+        'No hay motor. Bel se fija bien: no hay motor, no hay cable, no hay caja ' +
+        'de mando. La rueda gira porque sí, como giran las cosas que ya empezaron.',
+        'Una cabina se soltó en algún momento y quedó tirada al costado, con la ' +
+        'puerta abierta hacia arriba, como una boca.'
+      ],
+      acciones: [
+        { texto: 'Subir a una cabina',
+          resultado: [
+            'Bel se sube en movimiento, que es como se sube siempre.',
+            'Desde arriba la feria es chiquita y se ve entera, y por un momento ' +
+            'entiende el mapa de todo: dónde está cada cosa, cuánto le falta.',
+            'También ve algo caminando entre las carpas. Va despacio y no mira ' +
+            'para arriba.'
+          ],
+          da: 'carta', tension: .25, marca: 'vio_el_mapa' },
+        { texto: 'Mirar la cabina caída',
+          resultado: [
+            'Adentro hay un abrigo doblado. Prolijo, como lo dobla alguien que ' +
+            'piensa volver.',
+            'Bel lo levanta y abajo hay una carta.',
+            'La cabina no está oxidada ni rota. Está desabrochada.'
+          ],
+          da: 'carta', tension: .1 },
+        { texto: 'Buscar el motor',
+          resultado: [
+            'Rodea la estructura entera. En el lugar donde tendría que estar el ' +
+            'motor hay un hueco limpio, con el piso de cemento marcado por donde ' +
+            'estuvo apoyado, hace mucho.',
+            'La rueda sigue girando arriba de su cabeza.',
+            'Bel se queda mirando eso más tiempo del que le conviene.'
+          ],
+          tension: .3, marca: 'sabe_que_no_hay_motor' }
+      ]
+    },
+
+    torre: {
+      llegada: [
+        'La caída libre es lo más alto del predio y está torcida.',
+        'No mucho. Lo justo para que se note si uno la mira derecho: la torre ' +
+        'está inclinada como un diente flojo, y arriba de todo el carro cuelga a ' +
+        'mitad de camino, quieto, con los cinturones colgando.',
+        'Las balizas rojas siguen andando. Suben, llegan arriba, vuelven a empezar.'
+      ],
+      acciones: [
+        { texto: 'Subir por la escalera de servicio',
+          resultado: [
+            'Sube. Los escalones aguantan, que es lo raro.',
+            'A la altura del carro se para. Los cinturones están todos abrochados: ' +
+            'no colgando abiertos, abrochados, cada uno cerrado sobre su asiento ' +
+            'vacío.',
+            'Bel no los toca. Baja despacio, sin darse vuelta.'
+          ],
+          tension: .35, da: 'carta', marca: 'subio_la_torre' },
+        { texto: 'Leer el cartel de seguridad',
+          resultado: [
+            'Está en la base, esmaltado, con la letra de los ochenta.',
+            '<em>Prohibido el ascenso a menores de 12 años. Prohibido el ascenso ' +
+            'a personas con problemas cardíacos. Prohibido bajar antes de subir.</em>',
+            'Bel lee la última línea tres veces.'
+          ],
+          tension: .2 },
+        { texto: 'Empujar la torre',
+          resultado: [
+            'Apoya las dos manos en la viga y empuja, más por curiosidad que por ' +
+            'otra cosa.',
+            'La torre entera se mueve. Un centímetro, quizá dos, y vuelve.',
+            'Pesa lo que pesa una torre. Y se movió.'
+          ],
+          tension: .4, marca: 'movio_la_torre' }
+      ]
+    },
+
+    espejos: {
+      llegada: [
+        'El laberinto de espejos tiene la fachada entera de vidrio y las luces de ' +
+        'la marquesina moradas, casi todas sanas.',
+        'Bel se ve nueve veces mientras camina por el frente. Nueve Bel caminando ' +
+        'en fila, un poco más gordas, un poco más flacas, un poco más altas.',
+        'Se para. Las nueve se paran.',
+        'Casi todas.'
+      ],
+      acciones: [
+        { texto: 'Contar los reflejos',
+          resultado: [
+            'Uno, dos, tres, cuatro, cinco, seis, siete, ocho, nueve.',
+            'Nueve paneles. Diez reflejos.',
+            'Bel cuenta otra vez, más despacio, señalando con el dedo. Nueve ' +
+            'paneles. Diez.',
+            'El de más no está en ningún panel. Está entre dos.'
+          ],
+          tension: .45, da: 'carta', marca: 'conto_los_reflejos' },
+        { texto: 'Entrar al laberinto',
+          resultado: [
+            'Adentro se pierde en cuatro pasos, como se pierde todo el mundo.',
+            'Pero en una vuelta se encuentra de frente con ella misma haciendo ' +
+            'algo que ella no está haciendo: el reflejo está guardando una carta ' +
+            'en el bolsillo.',
+            'Bel se toca el bolsillo. Está la carta.'
+          ],
+          da: 'carta', tension: .3 },
+        { texto: 'Tocar el vidrio',
+          resultado: [
+            'Apoya la palma. El vidrio está tibio, que es lo que un vidrio no está ' +
+            'nunca a esta hora.',
+            'Del otro lado, el reflejo apoya la palma medio segundo después.',
+            'Medio segundo.'
+          ],
+          tension: .35 }
+      ]
+    },
+
+    chocadores: {
+      llegada: [
+        'La pista de autitos está encendida y tiene la malla del techo entera.',
+        'Hay cuatro autitos parados, cada uno en la posición en que lo dejaron: ' +
+        'de costado, contra la baranda, dado vuelta contra otro.',
+        'Y hay uno andando.',
+        'Da vueltas despacio, solo, con el pantógrafo chispeando en la malla. ' +
+        'Bel se queda mirándolo dar tres vueltas completas. No lo maneja nadie.'
+      ],
+      acciones: [
+        { texto: 'Subirse a uno de los parados',
+          resultado: [
+            'Se sienta. El asiento está tibio.',
+            'El volante se mueve solo un poco a la izquierda, como corrigiendo, y ' +
+            'después se queda quieto.',
+            'Debajo del asiento, encajada, hay una carta que alguien perdió y ' +
+            'nadie buscó.'
+          ],
+          da: 'carta', tension: .2 },
+        { texto: 'Pararse en el camino del que anda',
+          resultado: [
+            'Bel se planta en el medio de la pista y espera.',
+            'El autito viene. No acelera ni frena: viene a la misma velocidad de ' +
+            'siempre, sin apuro.',
+            'A un metro dobla, la rodea, y sigue.',
+            'La rodeó. Un autito de chocadores la esquivó.'
+          ],
+          tension: .5, marca: 'la_esquivo' },
+        { texto: 'Cortar la corriente',
+          resultado: [
+            'La llave está en un tablero al costado, con la palanca hacia arriba.',
+            'La baja. Las luces de la pista se apagan todas juntas y el zumbido ' +
+            'se corta.',
+            'El autito sigue andando.',
+            'Bel vuelve a subir la palanca, porque prefiere verlo.'
+          ],
+          tension: .55, da: 'carta', marca: 'corto_la_corriente' }
+      ]
+    },
+
+    hamacas: {
+      llegada: [
+        'Las sillas voladoras están quietas y colgadas, las diez, en círculo.',
+        'Es la atracción que da más pena de todas cuando está apagada: diez ' +
+        'asientos de chapa colgando de cadenas, esperando chicos que hoy tienen ' +
+        'cuarenta años.',
+        'Una se está moviendo.',
+        'No las diez. Una. Va y viene con la calma exacta de alguien que se acaba ' +
+        'de sentar y todavía no arrancó.'
+      ],
+      acciones: [
+        { texto: 'Sentarse en la de al lado',
+          resultado: [
+            'Bel se sienta y se agarra de las cadenas. La chapa está helada.',
+            'Se hamaca un poco, con los pies.',
+            'Al rato las dos sillas se están moviendo al mismo tiempo, y Bel se da ' +
+            'cuenta de que no arrancaron juntas: se acompasaron.'
+          ],
+          da: 'carta', tension: .3, marca: 'se_hamaco' },
+        { texto: 'Frenar la silla que se mueve',
+          resultado: [
+            'La agarra con las dos manos. Pesa más de lo que tendría que pesar una ' +
+            'silla vacía.',
+            'La frena. Se queda quieta.',
+            'Cuando Bel la suelta, arranca otra vez, desde el mismo lugar del ' +
+            'recorrido donde estaba.'
+          ],
+          tension: .45 },
+        { texto: 'Mirar el mástil',
+          resultado: [
+            'En el mástil central, a la altura de la cara, hay nombres rayados con ' +
+            'llave. Decenas. De todos los años.',
+            'Bel los lee de arriba abajo sin buscar nada.',
+            'Y encuentra el suyo, arriba de todo, en la letra que tenía a los ocho ' +
+            'años.'
+          ],
+          tension: .5, da: 'carta', marca: 'encontro_su_nombre' }
+      ]
+    },
+
+    calesita: {
+      llegada: [
+        'La calesita está andando y tiene la música más fuerte de toda la feria.',
+        'Es la única atracción que está entera: los caballos pintados, los espejos ' +
+        'del centro limpios, las lamparitas del techo todas sanas, ni una quemada.',
+        'Gira a la velocidad de siempre, la de los chicos chiquitos.',
+        'Y tiene la sortija colgando.'
+      ],
+      acciones: [
+        { texto: 'Sacar la sortija',
+          resultado: [
+            'Bel espera el momento, estira el brazo y la saca en la primera.',
+            'No es una sortija de metal. Es una carta, enrollada, atada con un hilo.',
+            'La calesita no la felicita ni le da otra vuelta gratis. Sigue girando ' +
+            'igual, como si eso ya estuviera arreglado de antes.'
+          ],
+          da: 'carta', tension: .15, marca: 'saco_la_sortija' },
+        { texto: 'Subirse a un caballo',
+          resultado: [
+            'Elige el de afuera, el que sube y baja, que es el que elegía siempre.',
+            'Da una vuelta entera mirando la feria pasar.',
+            'En la segunda vuelta, en el mismo lugar del recorrido, hay alguien ' +
+            'parado que en la primera vuelta no estaba.',
+            'En la tercera ya no está.'
+          ],
+          tension: .45 },
+        { texto: 'Mirarse en los espejos del centro',
+          resultado: [
+            'Los espejos del centro de la calesita están limpios y son buenos.',
+            'Bel se ve girar, y detrás de ella ve girar la feria entera, y detrás ' +
+            'de la feria ve el baldío de siempre, vacío, con los yuyos altos y el ' +
+            'paredón del fondo.',
+            'Los dos al mismo tiempo. La feria y el baldío, en el mismo espejo.'
+          ],
+          tension: .55, da: 'carta', marca: 'vio_el_baldio' }
+      ]
+    },
+
+    tiro: {
+      llegada: [
+        'El puesto de tiro tiene las tres hileras de patos andando y las luces del ' +
+        'alero todas prendidas.',
+        'Los premios cuelgan del techo: peluches de hace treinta años, decolorados ' +
+        'del lado que da al sol.',
+        'Hay dos rifles sobre el mostrador, apoyados con el caño hacia adentro.',
+        'Y hay un banquito del lado del que atiende, corrido, como si el tipo se ' +
+        'hubiera parado hace un segundo.'
+      ],
+      acciones: [
+        { texto: 'Agarrar un rifle y tirar',
+          resultado: [
+            'Bel apoya el codo como le enseñaron y le da a cuatro de cinco.',
+            'Los patos caen y se levantan solos, que es lo que hacen los patos.',
+            'El quinto no cae. Le da, lo escucha pegar, y el pato sigue andando.',
+            'Le da tres veces más. El pato sigue.'
+          ],
+          da: 'carta', tension: .35, marca: 'el_pato_que_no_cae' },
+        { texto: 'Mirar los premios',
+          resultado: [
+            'Los descuelga uno por uno. Están todos gastados del mismo lado.',
+            'En el cuarto, cosida en la costura de atrás, hay una carta doblada en ' +
+            'cuatro.',
+            'Alguien la guardó ahí para que la encontrara alguien.'
+          ],
+          da: 'carta', tension: .1 },
+        { texto: 'Sentarse del lado del que atiende',
+          resultado: [
+            'Pasa por abajo del mostrador y se sienta en el banquito.',
+            'Desde acá se ve toda la feria de frente. Es el mejor lugar del predio ' +
+            'y el único donde uno está de espaldas a la pared.',
+            'El que atendía sabía elegir.',
+            'Sobre la repisa, a la altura de la mano, hay un mate frío y una carta ' +
+            'apoyada boca abajo, como quien deja algo separado.'
+          ],
+          da: 'carta', tension: .3, marca: 'se_sento_atras' }
+      ]
+    }
+  };
+
+  /* ==================== los encuentros ==================== */
+
+  /* La presencia aparece cuando la tensión pasa el umbral. No hace daño: ocupa.
+     Se resuelve jugando una carta, y lo que pasa depende del tono de esa carta. */
+  var APARICIONES = [
+    [
+      'La música de la calesita se corta en la mitad de un compás, como cuando se ' +
+      'corta la luz.',
+      'Y en el silencio se escucha bien claro que hay alguien caminando sobre el ' +
+      'pedregullo, sin apuro.'
+    ],
+    [
+      'Todas las luces de la feria bajan un tono a la vez, y vuelven.',
+      'Como cuando arranca un motor grande en algún lado. Bel se da vuelta despacio.'
+    ],
+    [
+      'Un segundo antes olía a azúcar quemada. Ahora huele a agua estancada, a cosa ' +
+      'que estuvo mucho tiempo tapada.',
+      'Está más cerca que la última vez.'
+    ]
+  ];
+
+  var DESCRIPCION_PRESENCIA = [
+    'Tiene forma de persona parada, y eso es todo lo que tiene: donde debería ' +
+    'terminar, sigue un poco más, como una mancha de humedad.',
+    'Y espera. Es lo único que hace bien.'
+  ];
+
+  /* Cómo responde según el tono de la carta jugada. */
+  var RESPUESTAS = {
+    luz: [
+      'Bel juega la carta boca arriba, con el brazo estirado, como se muestra una ' +
+      'carta en una mesa.',
+      'Lo que está enfrente se corre. No retrocede: se corre, como se corre alguien ' +
+      'a quien le dijeron algo que no esperaba.',
+      'Y le deja el camino.'
+    ],
+    sombra: [
+      'Bel juega la carta y algo se rompe. No sabe qué, pero lo escucha.',
+      'Lo que está enfrente se abre al medio y la deja pasar.',
+      'Del otro lado, Bel se toca la cara y tiene la mano mojada, y no está lloviendo.'
+    ],
+    ambos: [
+      'Bel juega la carta y lo que está enfrente la mira, si es que mira.',
+      'Se queda pensando algo, si es que piensa.',
+      'Después da un paso al costado, exactamente uno, el mínimo necesario, y la ' +
+      'deja pasar sin dejar de estar ahí.'
+    ],
+    sincarta: [
+      'Bel busca en el bolsillo y no tiene nada.',
+      'Ninguna carta, ningún gesto, nada que mostrar.',
+      'Así que hace lo único que le queda: le pasa por al lado, caminando derecho, ' +
+      'sin correr y sin mirarlo.',
+      'Funciona. Pero mientras pasa, algo le saca algo, y Bel no se da cuenta de ' +
+      'qué hasta mucho después.'
+    ]
+  };
+
+  /* ==================== el cierre ==================== */
+
+  var VIDENTE_LLEGADA = [
+    'La última carpa es la única sin luces afuera.',
+    'Adentro hay una vela y hay una mujer sentada, y Bel entiende dos cosas al ' +
+    'mismo tiempo: que es la primera persona que ve en toda la noche, y que no ' +
+    'le va a poder ver la cara por más que se acerque.',
+    '—Sentate —dice la mujer—. Ya diste toda la vuelta.',
+    'Sobre la mesa hay tres cartas boca abajo. Las mismas tres de la boletería.',
+    '—Estas las diste vuelta vos cuando entraste —dice—. Ahora las damos vuelta ' +
+    'de nuevo, a ver si dicen lo mismo.'
+  ];
+
+  /* ==================== finales ==================== */
+
+  /* El final sale de cuántos hilos se resolvieron y del arcano de cierre.
+     No se pierde nunca: se cierra mejor o peor. */
+  function final(estado) {
+    var hilos = estado.hilosResueltos;
+    var cierre = A.get(estado.tirada.cierre.clave);
+    var comun = [];
+
+    if (hilos >= 3) {
+      comun = [
+        'La mujer da vuelta las tres y las tres dicen lo mismo que decían.',
+        '—Bueno —dice—. Eso no pasa casi nunca.',
+        'Junta las cartas, las empareja contra la mesa y se las da a Bel.',
+        '—Llevátelas. Acá ya no hacen nada.'
+      ];
+    } else if (hilos === 2) {
+      comun = [
+        'La mujer da vuelta las tres. Dos dicen lo mismo. La tercera cambió.',
+        '—Pasa —dice, sin darle importancia—. Una de tres se mueve casi siempre.',
+        'Empareja las cartas contra la mesa y le da dos.',
+        '—La otra se queda. Volvés a buscarla cuando puedas.'
+      ];
+    } else if (hilos === 1) {
+      comun = [
+        'La mujer da vuelta las tres y se queda callada un rato largo.',
+        '—Una sola aguantó —dice al final—. No es poco, ojo. Una sola aguantó ' +
+        'toda la noche.',
+        'Le da una carta. Las otras dos las guarda en el mazo.'
+      ];
+    } else {
+      comun = [
+        'La mujer da vuelta las tres y ninguna es la que era.',
+        '—Ah —dice—. Bueno.',
+        'No parece enojada ni decepcionada. Parece alguien que ya vio esto muchas ' +
+        'veces.',
+        '—Diste toda la vuelta igual. Eso no te lo saca nadie.'
+      ];
+    }
+
+    var cerrar = [
+      '—Antes de irte —dice la mujer, cuando Bel ya está en la puerta de la carpa—. ' +
+      'Vos sabés que esto no estaba, ¿no?',
+      '—Sé.',
+      '—Bueno. Entonces está bien.'
+    ];
+
+    var salida = [
+      'Bel sale de la carpa y camina hasta el molinete sin darse vuelta.',
+      'Del otro lado el baldío es el baldío: los yuyos altos, el paredón del ' +
+      'fondo, la bolsa de nylon enganchada en el alambre de siempre.',
+      'Se da vuelta.',
+      'Yuyos. Paredón. La bolsa.',
+      '···',
+      'En el bolsillo del abrigo tiene ' + (
+        hilos >= 3 ? 'tres cartas' :
+        hilos === 2 ? 'dos cartas' :
+        hilos === 1 ? 'una carta' : 'una moneda de un peso que ya no se usa'
+      ) + '.',
+      hilos >= 1
+        ? 'Las cartas son de verdad. Están gastadas en los bordes y tienen olor a ' +
+          'lona. Bel las mira bajo el farol de la esquina, una por una, y después ' +
+          'las guarda bien y sigue caminando para su casa.'
+        : 'La moneda es de verdad. Bel la hace girar sobre la palma, la mira ' +
+          'quedarse quieta, y la guarda.',
+      'Al otro día abre los cuadernos.'
+    ];
+
+    return {
+      titulo: hilos >= 3 ? 'Las tres aguantaron'
+        : hilos === 2 ? 'Dos de tres'
+        : hilos === 1 ? 'Una sola'
+        : 'Ninguna era la que era',
+      hilos: hilos,
+      parrafos: comun.concat(cerrar).concat(salida),
+      cierre: cierre
+    };
+  }
+
+  return {
+    POSICIONES: POSICIONES,
+    ATRACCIONES: ATRACCIONES,
+    APARICIONES: APARICIONES,
+    DESCRIPCION_PRESENCIA: DESCRIPCION_PRESENCIA,
+    RESPUESTAS: RESPUESTAS,
+    VIDENTE_LLEGADA: VIDENTE_LLEGADA,
+    lectura: lectura,
+    prologo: prologo,
+    tiradaTexto: tiradaTexto,
+    entrada: entrada,
+    final: final
+  };
+})();
+
+/* ===== js/audio.js ===== */
+/* Música y sonido, generados en vivo con Web Audio.
+   No hay archivos: todo sale de osciladores, así el juego pesa lo que pesa el
+   código. La música reacciona a la tensión de la escena: cuando algo se acerca,
+   el vals se desafina más, se enlentece y aparece un pulso grave. */
+var Audio2 = (function () {
+  'use strict';
+
+  var ac = null, maestro = null, reverb = null;
+  var encendido = false, bucle = null, proximo = 0, paso = 0;
+  var tension = 0, objetivoTension = 0;
+  var listo = false;
+
+  function crear() {
+    if (ac) return;
+    var AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) return;
+    ac = new AC();
+    maestro = ac.createGain();
+    maestro.gain.value = 0;
+
+    // Reverb: ruido que decae. Da la sensación de descampado.
+    reverb = ac.createConvolver();
+    var len = Math.floor(ac.sampleRate * 2.4);
+    var buf = ac.createBuffer(2, len, ac.sampleRate);
+    for (var ch = 0; ch < 2; ch++) {
+      var d = buf.getChannelData(ch);
+      for (var i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 2.7);
+    }
+    reverb.buffer = buf;
+
+    var seco = ac.createGain(); seco.gain.value = .70;
+    var mojado = ac.createGain(); mojado.gain.value = .48;
+    maestro.connect(seco).connect(ac.destination);
+    maestro.connect(reverb).connect(mojado).connect(ac.destination);
+
+    // Drone grave permanente: dos sierras batiendo apenas.
+    [55, 55.32, 82.4].forEach(function (f, i) {
+      var o = ac.createOscillator(), g = ac.createGain();
+      o.type = i === 2 ? 'triangle' : 'sawtooth';
+      o.frequency.value = f;
+      g.gain.value = i === 2 ? .038 : .058;
+      var lp = ac.createBiquadFilter();
+      lp.type = 'lowpass'; lp.frequency.value = 250; lp.Q.value = 1.1;
+      o.connect(g).connect(lp).connect(maestro);
+      o.start();
+    });
+    listo = true;
+  }
+
+  // Vals de calesita en menor. Los grados están en semitonos desde Do.
+  var MELODIA = [
+    0, 3, 7, 3, 10, 7, 3, 7,
+    0, 3, 7, 10, 12, 10, 7, 3,
+    -2, 2, 5, 2, 9, 5, 2, 5,
+    0, 3, 7, 3, 8, 7, 3, 0
+  ];
+
+  function nota(semi, cuando, dur, vol) {
+    if (!ac) return;
+    // El desafine crece con la tensión: la calesita se va rompiendo.
+    var desvio = (Math.sin(semi * 12.9898 + paso * .37) * .006) * (1 + tension * 3.5);
+    var f = 261.63 * Math.pow(2, semi / 12) * (1 + desvio);
+    var o = ac.createOscillator(), g = ac.createGain();
+    o.type = 'triangle'; o.frequency.value = f;
+    var bp = ac.createBiquadFilter();
+    bp.type = 'bandpass'; bp.frequency.value = f * 2.1; bp.Q.value = .8;
+    g.gain.setValueAtTime(0, cuando);
+    g.gain.linearRampToValueAtTime(vol, cuando + .012);
+    g.gain.exponentialRampToValueAtTime(.0001, cuando + dur);
+    o.connect(bp).connect(g).connect(maestro);
+    o.start(cuando); o.stop(cuando + dur + .05);
+  }
+
+  function golpe(cuando, vol) {
+    if (!ac) return;
+    var o = ac.createOscillator(), g = ac.createGain();
+    o.type = 'sine';
+    o.frequency.setValueAtTime(96, cuando);
+    o.frequency.exponentialRampToValueAtTime(42, cuando + .16);
+    g.gain.setValueAtTime(vol, cuando);
+    g.gain.exponentialRampToValueAtTime(.0001, cuando + .3);
+    o.connect(g).connect(maestro);
+    o.start(cuando); o.stop(cuando + .35);
+  }
+
+  function campana(cuando, alto) {
+    if (!ac) return;
+    var base = alto ? 1318 : 1046;
+    [1, 2.76, 5.4].forEach(function (m, i) {
+      var o = ac.createOscillator(), g = ac.createGain();
+      o.type = 'sine'; o.frequency.value = base * m;
+      g.gain.setValueAtTime(0, cuando);
+      g.gain.linearRampToValueAtTime(.045 / (i + 1), cuando + .008);
+      g.gain.exponentialRampToValueAtTime(.0001, cuando + 3.2 / (i + 1));
+      o.connect(g).connect(maestro);
+      o.start(cuando); o.stop(cuando + 3.4);
+    });
+  }
+
+  // Latido grave: aparece cuando la tensión sube.
+  function latido(cuando, fuerza) {
+    if (!ac) return;
+    var o = ac.createOscillator(), g = ac.createGain();
+    o.type = 'sine';
+    o.frequency.setValueAtTime(58, cuando);
+    o.frequency.exponentialRampToValueAtTime(31, cuando + .38);
+    g.gain.setValueAtTime(0, cuando);
+    g.gain.linearRampToValueAtTime(.20 * fuerza, cuando + .03);
+    g.gain.exponentialRampToValueAtTime(.0001, cuando + .5);
+    o.connect(g).connect(maestro);
+    o.start(cuando); o.stop(cuando + .55);
+  }
+
+  function programar() {
+    if (!ac || !encendido) return;
+    // La tensión sube despacio: los cambios de música no deben ser bruscos.
+    tension += (objetivoTension - tension) * .06;
+    var PASO = .34 + tension * .10;              // se enlentece con la tensión
+    var horizonte = ac.currentTime + .7;
+    var guardia = 0;
+    while (proximo < horizonte && guardia++ < 40) {
+      var i = paso % MELODIA.length;
+      if (paso % 3 === 0) golpe(proximo, .15 * (1 - tension * .5));
+      nota(MELODIA[i] - 12, proximo, 1.1, .095 * (1 - tension * .35));
+      if (paso % 3 !== 0) nota(MELODIA[i], proximo, .8, .05 * (1 - tension * .4));
+      if (paso % 48 === 12) campana(proximo);
+      if (tension > .35 && paso % 6 === 0) latido(proximo, tension);
+      proximo += PASO;
+      paso++;
+    }
+  }
+
+  /* --- efectos puntuales --- */
+
+  function efecto(tipo) {
+    if (!ac || !encendido) return;
+    var ahora = ac.currentTime;
+    if (tipo === 'carta') {
+      // Roce de cartón.
+      var n = ruido(.09);
+      var bp = ac.createBiquadFilter();
+      bp.type = 'bandpass'; bp.frequency.value = 2600; bp.Q.value = .7;
+      var g = ac.createGain();
+      g.gain.setValueAtTime(.10, ahora);
+      g.gain.exponentialRampToValueAtTime(.0001, ahora + .12);
+      n.connect(bp).connect(g).connect(maestro);
+    } else if (tipo === 'paso') {
+      var n2 = ruido(.14);
+      var lp = ac.createBiquadFilter();
+      lp.type = 'lowpass'; lp.frequency.value = 700;
+      var g2 = ac.createGain();
+      g2.gain.setValueAtTime(.07, ahora);
+      g2.gain.exponentialRampToValueAtTime(.0001, ahora + .16);
+      n2.connect(lp).connect(g2).connect(maestro);
+    } else if (tipo === 'aparicion') {
+      // Golpe grave con la campana desafinada encima.
+      latido(ahora, 1);
+      campana(ahora + .05, false);
+      var o = ac.createOscillator(), g3 = ac.createGain();
+      o.type = 'sawtooth';
+      o.frequency.setValueAtTime(120, ahora);
+      o.frequency.exponentialRampToValueAtTime(34, ahora + 1.1);
+      g3.gain.setValueAtTime(.10, ahora);
+      g3.gain.exponentialRampToValueAtTime(.0001, ahora + 1.2);
+      var lp3 = ac.createBiquadFilter();
+      lp3.type = 'lowpass'; lp3.frequency.value = 400;
+      o.connect(lp3).connect(g3).connect(maestro);
+      o.start(ahora); o.stop(ahora + 1.3);
+    } else if (tipo === 'bien') {
+      [0, 4, 7].forEach(function (s, i) {
+        nota(s + 12, ahora + i * .06, .9, .05);
+      });
+    } else if (tipo === 'mal') {
+      [0, 1, 6].forEach(function (s, i) {
+        nota(s, ahora + i * .05, 1.1, .045);
+      });
+    } else if (tipo === 'revelacion') {
+      campana(ahora, true);
+      campana(ahora + .35, false);
+    }
+  }
+
+  function ruido(dur) {
+    var len = Math.max(1, Math.floor(ac.sampleRate * dur));
+    var buf = ac.createBuffer(1, len, ac.sampleRate);
+    var d = buf.getChannelData(0);
+    for (var i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
+    var src = ac.createBufferSource();
+    src.buffer = buf; src.start();
+    return src;
+  }
+
+  /* --- control --- */
+
+  function alternar() {
+    crear();
+    if (!ac) return false;
+    if (ac.state === 'suspended') ac.resume();
+    encendido = !encendido;
+    maestro.gain.cancelScheduledValues(ac.currentTime);
+    maestro.gain.linearRampToValueAtTime(encendido ? .48 : 0,
+      ac.currentTime + (encendido ? 1.6 : .5));
+    if (encendido) {
+      proximo = ac.currentTime + .1;
+      if (!bucle) bucle = setInterval(programar, 140);
+    }
+    return encendido;
+  }
+
+  function estaEncendido() { return encendido; }
+  // 0 tranquilo, 1 la presencia encima.
+  function setTension(v) { objetivoTension = Math.max(0, Math.min(1, v)); }
+
+  return {
+    alternar: alternar, estaEncendido: estaEncendido,
+    setTension: setTension, efecto: efecto
+  };
+})();
+
+/* ===== js/juego.js ===== */
+/* Motor de Kermés: estado, pantallas y el recorrido por la feria.
+   El canvas dibuja la escena todo el tiempo por detrás; la interfaz va en HTML
+   encima, así el texto se puede leer y seleccionar como corresponde. */
+var Juego = (function () {
+  'use strict';
+
+  var VISITAS_PARA_CERRAR = 4;    // cuántas atracciones habilitan la carpa final
+  var UMBRAL_ENCUENTRO = 1.0;     // tensión acumulada que hace aparecer la presencia
+  var GUARDADO = 'kermes.partida.v1';
+
+  var raiz = null, cv = null, cx = null;
+  var W = 0, H = 0, dpr = 1, t = 0;
+  var escenaActual = 'entrada';
+  var estado = null;
+  var sacudida = 0;
+
+  /* ==================== utilidades ==================== */
+
+  function el(tag, cls, html) {
+    var n = document.createElement(tag);
+    if (cls) n.className = cls;
+    if (html !== undefined) n.innerHTML = html;
+    return n;
+  }
+  function azar(a) { return a[Math.floor(Math.random() * a.length)]; }
+  function mezclar(a) {
+    a = a.slice();
+    for (var i = a.length - 1; i > 0; i--) {
+      var j = Math.floor(Math.random() * (i + 1));
+      var x = a[i]; a[i] = a[j]; a[j] = x;
+    }
+    return a;
+  }
+
+  /* ==================== canvas ==================== */
+
+  function medir() {
+    dpr = Math.min(window.devicePixelRatio || 1, 2);
+    W = window.innerWidth; H = window.innerHeight;
+    cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr);
+    cx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    Dib.usar(cx, W, H, t, true);
+    Dib.sembrar();
+    Dib.sembrarMotas(46);
+  }
+
+  function pintar() {
+    t += 1 / 60;
+    if (sacudida > 0) sacudida *= .90;
+
+    cx.save();
+    if (sacudida > .01) {
+      cx.translate((Math.random() - .5) * sacudida * 26,
+                   (Math.random() - .5) * sacudida * 26);
+    }
+    Dib.usar(cx, W, H, t, true);
+    var esc = Escenas.get(escenaActual);
+    if (esc) {
+      try {
+        esc.pinta({ cx: cx, t: t, luna: estado ? estado.luna : Luna.estado(), W: W, H: H });
+      } catch (err) {
+        cx.fillStyle = '#0a0810'; cx.fillRect(0, 0, W, H);
+        if (!pintar.avisado) { console.error('escena', escenaActual, err); pintar.avisado = true; }
+      }
+    }
+    // La presencia se dibuja encima cuando está cerca.
+    if (estado && estado.tension > .45 && escenaActual !== 'vidente') {
+      var q = Math.min(1, (estado.tension - .45) / .55);
+      Dib.presencia(.88, .93, .30 * (.6 + q * .5), q * .85);
+    }
+    if (estado) Dib.vineta(Math.min(1, estado.tension * .8));
+    cx.restore();
+    requestAnimationFrame(pintar);
+  }
+
+  /* ==================== estado ==================== */
+
+  function nuevaPartida(nombre) {
+    var luna = Luna.estado();
+    var claves = mezclar(Arcanos.claves());
+    function sacar() {
+      var c = claves.pop();
+      return Arcanos.instancia(c, Math.random() < .3);
+    }
+    estado = {
+      nombre: nombre || 'Bel',
+      luna: luna,
+      tirada: { busca: sacar(), espera: sacar(), cierre: sacar() },
+      mazo: claves,
+      mano: [],
+      visitadas: {},
+      hechas: {},
+      marcas: {},
+      tension: 0,
+      encuentros: 0,
+      encuentrosConCarta: 0,
+      cartasGanadas: 0,
+      hilosResueltos: 0,
+      terminada: false
+    };
+    guardar();
+  }
+
+  function robar() {
+    if (!estado.mazo.length) return null;
+    var c = Arcanos.instancia(estado.mazo.pop(), Math.random() < .28);
+    estado.mano.push(c);
+    estado.cartasGanadas++;
+    return c;
+  }
+
+  function contarVisitadas() { return Object.keys(estado.visitadas).length; }
+
+  /* Los tres hilos de la tirada se resuelven así:
+       busca  — juntó cartas suficientes como para volver con algo
+       espera — enfrentó a la presencia con una carta cada vez
+       cierre — recorrió la feria en serio antes de ir a la carpa */
+  function calcularHilos() {
+    var n = 0;
+    if (estado.cartasGanadas >= 4) n++;
+    if (estado.encuentros > 0 && estado.encuentrosConCarta === estado.encuentros) n++;
+    if (contarVisitadas() >= VISITAS_PARA_CERRAR) n++;
+    estado.hilosResueltos = n;
+    return n;
+  }
+
+  function guardar() {
+    try {
+      localStorage.setItem(GUARDADO, JSON.stringify({
+        nombre: estado.nombre,
+        tirada: {
+          busca: [estado.tirada.busca.clave, estado.tirada.busca.invertida],
+          espera: [estado.tirada.espera.clave, estado.tirada.espera.invertida],
+          cierre: [estado.tirada.cierre.clave, estado.tirada.cierre.invertida]
+        },
+        mazo: estado.mazo,
+        mano: estado.mano.map(function (c) { return [c.clave, c.invertida]; }),
+        visitadas: estado.visitadas, hechas: estado.hechas, marcas: estado.marcas,
+        tension: estado.tension, encuentros: estado.encuentros,
+        encuentrosConCarta: estado.encuentrosConCarta,
+        cartasGanadas: estado.cartasGanadas, escena: escenaActual
+      }));
+    } catch (e) { /* sin almacenamiento se juega igual */ }
+  }
+  function leerGuardado() {
+    try {
+      var raw = localStorage.getItem(GUARDADO);
+      return raw ? JSON.parse(raw) : null;
+    } catch (e) { return null; }
+  }
+  function borrarGuardado() {
+    try { localStorage.removeItem(GUARDADO); } catch (e) { }
+  }
+
+  /* ==================== render base ==================== */
+
+  function mostrar(nodo) {
+    raiz.innerHTML = '';
+    raiz.appendChild(nodo);
+  }
+
+  function marco() {
+    var v = el('div', 'pantalla');
+    return v;
+  }
+
+  function rotulo(titulo, sub) {
+    var d = el('div', 'rotulo');
+    if (sub) d.appendChild(el('p', 'arcano', sub));
+    d.appendChild(el('h1', null, titulo));
+    return d;
+  }
+
+  function panel() { return el('div', 'panel'); }
+
+  function prosa(parrafos, cls) {
+    var d = el('div', 'prosa ' + (cls || ''));
+    parrafos.forEach(function (p, i) {
+      var n = el('p', p === '···' ? 'sep' : null, p);
+      n.style.animationDelay = (i * .10 + .1) + 's';
+      d.appendChild(n);
+    });
+    return d;
+  }
+
+  function acciones() { return el('div', 'acciones'); }
+
+  function boton(texto, fn, cls) {
+    var b = el('button', 'bt ' + (cls || ''), texto);
+    b.onclick = function () { Audio2.efecto('paso'); fn(); };
+    return b;
+  }
+
+  /* --- barra superior: luna, cartas, estado --- */
+
+  function barra() {
+    var b = el('div', 'barra');
+    var izq = el('div', 'barra-izq');
+    izq.innerHTML = '<span class="luna-glifo">☾</span>' +
+      '<span class="luna-txt">' + estado.luna.fase + ' · ' +
+      estado.luna.signoGlifo + ' ' + estado.luna.signoNombre + '</span>';
+    b.appendChild(izq);
+
+    var der = el('div', 'barra-der');
+    var vis = el('button', 'bt bt-chico', 'La tirada');
+    vis.onclick = verTirada;
+    der.appendChild(vis);
+    var son = el('button', 'bt bt-chico', Audio2.estaEncendido() ? '♪ Sonando' : '♪ Música');
+    son.onclick = function () {
+      var on = Audio2.alternar();
+      son.textContent = on ? '♪ Sonando' : '♪ Música';
+      son.setAttribute('aria-pressed', on);
+    };
+    son.setAttribute('aria-pressed', Audio2.estaEncendido());
+    der.appendChild(son);
+    b.appendChild(der);
+    return b;
+  }
+
+  /* --- cartas --- */
+
+  function nodoCarta(carta, alClick, indice) {
+    var d = el('div', 'carta' + (carta.invertida ? ' invertida' : ''));
+    d.innerHTML =
+      '<span class="num">' + carta.num + '</span>' +
+      '<span class="glifo">' + carta.glifo + '</span>' +
+      '<span class="nom">' + carta.nombre + '</span>';
+    if (indice !== undefined) d.style.animationDelay = (.12 * indice) + 's';
+    if (alClick) {
+      d.classList.add('jugable');
+      d.tabIndex = 0;
+      var lanzar = function () {
+        // La carta tarda en volar. Sin este cierre se pueden jugar varias
+        // cartas seguidas antes de que se resuelva la primera.
+        var m = d.parentNode;
+        if (m && m.classList.contains('bloqueada')) return;
+        if (m) m.classList.add('bloqueada');
+        Audio2.efecto('carta');
+        d.classList.add('jugada');
+        setTimeout(function () { alClick(carta); }, 420);
+      };
+      d.onclick = lanzar;
+      d.onkeydown = function (ev) {
+        if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); lanzar(); }
+      };
+      var cara = Arcanos.cara(carta);
+      d.title = carta.nombre + (carta.invertida ? ' invertida' : '') + ' — ' + cara.verbo;
+    }
+    return d;
+  }
+
+  function mano(alJugar) {
+    var m = el('div', 'mano');
+    if (!estado.mano.length) {
+      m.appendChild(el('p', 'mano-vacia', 'No tenés ninguna carta encima.'));
+      return m;
+    }
+    estado.mano.forEach(function (c, i) {
+      m.appendChild(nodoCarta(c, alJugar, i));
+    });
+    return m;
+  }
+
+  /* ==================== pantallas ==================== */
+
+  function portada() {
+    escenaActual = 'entrada';
+    var v = marco();
+    var c = el('div', 'portada');
+    c.innerHTML =
+      '<p class="arcano">una noche en el baldío</p>' +
+      '<h1 class="titulo">Kermés</h1>' +
+      '<p class="bajada">Hay una feria donde no había nada,<br>' +
+      'y está abierta.</p>';
+    v.appendChild(c);
+
+    var a = acciones();
+    a.appendChild(boton('Entrar', function () {
+      if (!Audio2.estaEncendido()) Audio2.alternar();
+      nuevaPartida('Bel');
+      pantallaPrologo();
+    }, 'bt-primario'));
+
+    var g = leerGuardado();
+    if (g && g.escena) {
+      a.appendChild(boton('Seguir la noche', function () { retomar(g); }));
+    }
+    a.appendChild(boton(Audio2.estaEncendido() ? '♪ Sonando' : '♪ Música', function () {
+      var on = Audio2.alternar();
+      a.querySelectorAll('.bt')[a.querySelectorAll('.bt').length - 1].textContent =
+        on ? '♪ Sonando' : '♪ Música';
+    }));
+    v.appendChild(a);
+    mostrar(v);
+  }
+
+  function retomar(g) {
+    var luna = Luna.estado();
+    estado = {
+      nombre: g.nombre, luna: luna,
+      tirada: {
+        busca: Arcanos.instancia(g.tirada.busca[0], g.tirada.busca[1]),
+        espera: Arcanos.instancia(g.tirada.espera[0], g.tirada.espera[1]),
+        cierre: Arcanos.instancia(g.tirada.cierre[0], g.tirada.cierre[1])
+      },
+      mazo: g.mazo || [],
+      mano: (g.mano || []).map(function (c) { return Arcanos.instancia(c[0], c[1]); }),
+      visitadas: g.visitadas || {}, hechas: g.hechas || {}, marcas: g.marcas || {},
+      tension: g.tension || 0, encuentros: g.encuentros || 0,
+      encuentrosConCarta: g.encuentrosConCarta || 0,
+      cartasGanadas: g.cartasGanadas || 0, hilosResueltos: 0, terminada: false
+    };
+    if (!Audio2.estaEncendido()) Audio2.alternar();
+    pantallaMapa();
+  }
+
+  function pantallaPrologo() {
+    escenaActual = 'entrada';
+    var v = marco();
+    v.appendChild(panelConProsa(Guion.prologo(estado.nombre, estado.luna),
+      'La feria', null, 'Dar vuelta las cartas', pantallaTirada));
+    mostrar(v);
+  }
+
+  // Panel de texto con un botón al pie. Se usa en casi todas las pantallas.
+  function panelConProsa(parrafos, titulo, sub, textoBoton, alSeguir) {
+    var p = panel();
+    if (titulo) p.appendChild(rotulo(titulo, sub));
+    p.appendChild(prosa(parrafos));
+    var a = acciones();
+    a.appendChild(boton(textoBoton, alSeguir, 'bt-primario'));
+    p.appendChild(a);
+    return p;
+  }
+
+  /* --- la tirada de apertura, con las cartas dándose vuelta --- */
+
+  function pantallaTirada() {
+    escenaActual = 'entrada';
+    var v = marco();
+    var p = panel();
+    p.appendChild(rotulo('La tirada', 'tres cartas sobre el mostrador'));
+    p.appendChild(prosa(Guion.tiradaTexto()));
+
+    var fila = el('div', 'tirada');
+    Guion.POSICIONES.forEach(function (pos, i) {
+      var carta = estado.tirada[pos.clave];
+      var caja = el('div', 'tirada-caja');
+      var dorso = el('div', 'carta dorso');
+      dorso.innerHTML = '<span class="dorso-marca">✳</span>';
+      caja.appendChild(dorso);
+      var tit = el('p', 'tirada-pos', pos.titulo);
+      var txt = el('p', 'tirada-txt', '');
+      caja.appendChild(tit); caja.appendChild(txt);
+      fila.appendChild(caja);
+
+      setTimeout(function () {
+        Audio2.efecto('carta');
+        dorso.classList.add('girando');
+        setTimeout(function () {
+          caja.replaceChild(nodoCarta(carta), dorso);
+          txt.innerHTML = '<strong>' + carta.nombre +
+            (carta.invertida ? ' invertida' : '') + '</strong><br>' +
+            Guion.lectura(pos.clave, carta.clave);
+          txt.classList.add('visible');
+          if (i === 2) Audio2.efecto('revelacion');
+        }, 340);
+      }, 700 + i * 900);
+    });
+    p.appendChild(fila);
+
+    var a = acciones();
+    var b = boton('Pasar el molinete', pantallaEntrada, 'bt-primario');
+    b.style.opacity = '0';
+    b.style.transition = 'opacity .8s';
+    a.appendChild(b);
+    p.appendChild(a);
+    setTimeout(function () { b.style.opacity = '1'; }, 3400);
+
+    v.appendChild(p);
+    mostrar(v);
+  }
+
+  function verTirada() {
+    var ov = el('div', 'overlay');
+    var caja = el('div', 'overlay-caja');
+    caja.appendChild(rotulo('La tirada de esta noche', null));
+    var fila = el('div', 'tirada');
+    Guion.POSICIONES.forEach(function (pos) {
+      var carta = estado.tirada[pos.clave];
+      var c = el('div', 'tirada-caja');
+      c.appendChild(nodoCarta(carta));
+      c.appendChild(el('p', 'tirada-pos', pos.titulo));
+      c.appendChild(el('p', 'tirada-txt visible',
+        '<strong>' + carta.nombre + (carta.invertida ? ' invertida' : '') +
+        '</strong><br>' + Guion.lectura(pos.clave, carta.clave)));
+      fila.appendChild(c);
+    });
+    caja.appendChild(fila);
+    var est = el('p', 'fino',
+      'Cartas encima: ' + estado.mano.length + ' · ' +
+      'atracciones recorridas: ' + contarVisitadas() + ' de 7');
+    caja.appendChild(est);
+    if (estado.mano.length) {
+      caja.appendChild(el('p', 'fino', 'Lo que llevás:'));
+      caja.appendChild(mano(null));
+    }
+    var a = acciones();
+    a.appendChild(boton('Cerrar', function () { document.body.removeChild(ov); }, 'bt-primario'));
+    caja.appendChild(a);
+    ov.appendChild(caja);
+    ov.onclick = function (ev) { if (ev.target === ov) document.body.removeChild(ov); };
+    document.body.appendChild(ov);
+  }
+
+  function pantallaEntrada() {
+    escenaActual = 'entrada';
+    var v = marco();
+    v.appendChild(barra());
+    v.appendChild(panelConProsa(Guion.entrada(estado.nombre), 'La entrada',
+      'Arcano 0 · El Loco', 'Mirar alrededor', pantallaMapa));
+    mostrar(v);
+  }
+
+  /* --- el mapa: a dónde ir --- */
+
+  function pantallaMapa() {
+    escenaActual = 'entrada';
+    guardar();
+    var v = marco();
+    v.appendChild(barra());
+    var p = panel();
+
+    var visitadas = contarVisitadas();
+    var puedeCerrar = visitadas >= VISITAS_PARA_CERRAR;
+
+    p.appendChild(rotulo('¿Para dónde?', 'la feria entera está abierta'));
+    p.appendChild(prosa([
+      visitadas === 0
+        ? 'Los caminos de pedregullo salen de la entrada como los rayos de una rueda.'
+        : 'Bel vuelve al centro del predio. Desde acá se ve todo.',
+      puedeCerrar
+        ? 'En el fondo, la carpa sin luces sigue ahí. Ahora se ve una claridad ' +
+          'abajo de la lona, como de vela.'
+        : 'En el fondo hay una carpa apagada. Todavía no le da la impresión de ' +
+          'que sea el momento.'
+    ]));
+
+    var lista = el('div', 'destinos');
+    Escenas.RECORRIBLES.forEach(function (clave) {
+      var esc = Escenas.get(clave);
+      var ya = !!estado.visitadas[clave];
+      var b = el('button', 'destino' + (ya ? ' visitado' : ''));
+      b.innerHTML =
+        '<span class="destino-arcano">' + esc.sub + '</span>' +
+        '<span class="destino-tit">' + esc.titulo + '</span>' +
+        (ya ? '<span class="destino-ya">ya estuviste</span>' : '');
+      b.onclick = function () { Audio2.efecto('paso'); irA(clave); };
+      lista.appendChild(b);
+    });
+    p.appendChild(lista);
+
+    var a = acciones();
+    if (puedeCerrar) {
+      a.appendChild(boton('Ir a la carpa del fondo', pantallaVidente, 'bt-primario'));
+    } else {
+      a.appendChild(el('p', 'fino',
+        'Recorré al menos ' + VISITAS_PARA_CERRAR + ' atracciones antes de ir al fondo. ' +
+        'Llevás ' + visitadas + '.'));
+    }
+    p.appendChild(a);
+    v.appendChild(p);
+    mostrar(v);
+  }
+
+  /* --- una atracción --- */
+
+  function irA(clave) {
+    escenaActual = clave;
+    estado.visitadas[clave] = true;
+    guardar();
+    var esc = Escenas.get(clave);
+    var contenido = Guion.ATRACCIONES[clave];
+    var v = marco();
+    v.appendChild(barra());
+    v.appendChild(panelConProsa(contenido.llegada, esc.titulo, esc.sub,
+      'Quedarse un rato', function () { pantallaAcciones(clave); }));
+    mostrar(v);
+  }
+
+  function pantallaAcciones(clave) {
+    escenaActual = clave;
+    var esc = Escenas.get(clave);
+    var contenido = Guion.ATRACCIONES[clave];
+    var v = marco();
+    v.appendChild(barra());
+    var p = panel();
+    p.appendChild(rotulo(esc.titulo, esc.sub));
+
+    var disponibles = contenido.acciones.filter(function (ac, i) {
+      return !estado.hechas[clave + ':' + i];
+    });
+
+    if (!disponibles.length) {
+      p.appendChild(prosa(['Acá ya no le queda nada por hacer.']));
+      var a0 = acciones();
+      a0.appendChild(boton('Volver al centro', pantallaMapa, 'bt-primario'));
+      p.appendChild(a0);
+      v.appendChild(p); mostrar(v);
+      return;
+    }
+
+    p.appendChild(prosa(['¿Qué hace?']));
+    var lista = el('div', 'opciones');
+    contenido.acciones.forEach(function (ac, i) {
+      if (estado.hechas[clave + ':' + i]) return;
+      var b = el('button', 'opcion', ac.texto);
+      b.onclick = function () { Audio2.efecto('paso'); hacer(clave, i); };
+      lista.appendChild(b);
+    });
+    p.appendChild(lista);
+
+    var a = acciones();
+    a.appendChild(boton('Volver al centro', pantallaMapa));
+    p.appendChild(a);
+    v.appendChild(p);
+    mostrar(v);
+  }
+
+  function hacer(clave, i) {
+    var contenido = Guion.ATRACCIONES[clave];
+    var ac = contenido.acciones[i];
+    estado.hechas[clave + ':' + i] = true;
+
+    var ganada = null;
+    if (ac.da === 'carta') ganada = robar();
+    if (ac.tension) estado.tension += ac.tension;
+    if (ac.marca) estado.marcas[ac.marca] = true;
+    Audio2.setTension(Math.min(1, estado.tension / UMBRAL_ENCUENTRO));
+    if (ac.tension >= .4) sacudida = .35;
+    guardar();
+
+    var esc = Escenas.get(clave);
+    var v = marco();
+    v.appendChild(barra());
+    var p = panel();
+    p.appendChild(rotulo(esc.titulo, esc.sub));
+    p.appendChild(prosa(ac.resultado));
+
+    if (ganada) {
+      var g = el('div', 'ganada');
+      g.appendChild(el('p', 'ganada-tit', 'Guardás una carta'));
+      var m = el('div', 'mano');
+      m.appendChild(nodoCarta(ganada, null, 0));
+      g.appendChild(m);
+      var cara = Arcanos.cara(ganada);
+      g.appendChild(el('p', 'ganada-txt',
+        '<strong>' + ganada.nombre + (ganada.invertida ? ' invertida' : '') +
+        '</strong> — ' + cara.verbo.toLowerCase() + '. ' + ganada.arcano.lectura));
+      p.appendChild(g);
+      Audio2.efecto('revelacion');
+    }
+
+    var a = acciones();
+    var siguiente = (estado.tension >= UMBRAL_ENCUENTRO)
+      ? function () { pantallaEncuentro(clave); }
+      : function () { pantallaAcciones(clave); };
+    a.appendChild(boton('Seguir', siguiente, 'bt-primario'));
+    p.appendChild(a);
+    v.appendChild(p);
+    mostrar(v);
+  }
+
+  /* --- el encuentro --- */
+
+  function pantallaEncuentro(clave) {
+    escenaActual = clave;
+    estado.tension = UMBRAL_ENCUENTRO;
+    Audio2.setTension(1);
+    Audio2.efecto('aparicion');
+    sacudida = .8;
+
+    var v = marco();
+    v.appendChild(barra());
+    var p = panel('encuentro');
+    p.classList.add('encuentro');
+    p.appendChild(rotulo('Está acá', 'lo que te estaba esperando'));
+    p.appendChild(prosa(azar(Guion.APARICIONES).concat(Guion.DESCRIPCION_PRESENCIA)));
+
+    if (estado.mano.length) {
+      p.appendChild(el('p', 'instruccion', 'Jugá una carta.'));
+      var m = mano(function (carta) { resolverEncuentro(clave, carta); });
+      p.appendChild(m);
+      // La mano tiene que quedar a la vista sin que haya que buscarla.
+      setTimeout(function () {
+        m.scrollIntoView({ behavior: 'smooth', block: 'end' });
+      }, 900);
+      var a = acciones();
+      a.appendChild(boton('Pasarle por al lado sin nada', function () {
+        resolverEncuentro(clave, null);
+      }));
+      p.appendChild(a);
+    } else {
+      p.appendChild(el('p', 'instruccion', 'No tenés ninguna carta encima.'));
+      var a2 = acciones();
+      a2.appendChild(boton('Pasarle por al lado', function () {
+        resolverEncuentro(clave, null);
+      }, 'bt-primario'));
+      p.appendChild(a2);
+    }
+    v.appendChild(p);
+    mostrar(v);
+  }
+
+  function resolverEncuentro(clave, carta) {
+    estado.encuentros++;
+    var parrafos;
+    if (carta) {
+      estado.encuentrosConCarta++;
+      // La carta jugada se va de la mano: se gasta al usarla.
+      var idx = estado.mano.indexOf(carta);
+      if (idx >= 0) estado.mano.splice(idx, 1);
+      var cara = Arcanos.cara(carta);
+      parrafos = [cara.texto].concat(Guion.RESPUESTAS[carta.arcano.tono] || Guion.RESPUESTAS.ambos);
+      Audio2.efecto('bien');
+    } else {
+      parrafos = Guion.RESPUESTAS.sincarta;
+      // Sin carta se paga con una que ya tenías, si te queda alguna.
+      if (estado.mano.length) estado.mano.pop();
+      Audio2.efecto('mal');
+    }
+    estado.tension = .25;
+    Audio2.setTension(.25);
+    guardar();
+
+    var esc = Escenas.get(clave);
+    var v = marco();
+    v.appendChild(barra());
+    var p = panel();
+    p.appendChild(rotulo(carta ? carta.nombre : 'De largo',
+      carta ? (carta.invertida ? 'invertida' : 'al derecho') : 'sin nada en la mano'));
+    p.appendChild(prosa(parrafos));
+    var a = acciones();
+    a.appendChild(boton('Seguir', function () { pantallaAcciones(clave); }, 'bt-primario'));
+    p.appendChild(a);
+    v.appendChild(p);
+    mostrar(v);
+  }
+
+  /* --- la carpa del fondo --- */
+
+  function pantallaVidente() {
+    escenaActual = 'vidente';
+    Audio2.setTension(.15);
+    var v = marco();
+    v.appendChild(barra());
+    v.appendChild(panelConProsa(Guion.VIDENTE_LLEGADA, 'La carpa del fondo',
+      'Arcano II · La Sacerdotisa', 'Dar vuelta las cartas', pantallaFinal));
+    mostrar(v);
+  }
+
+  function pantallaFinal() {
+    escenaActual = 'vidente';
+    calcularHilos();
+    estado.terminada = true;
+    borrarGuardado();
+    Audio2.efecto('revelacion');
+
+    var f = Guion.final(estado);
+    var v = marco();
+    var p = panel();
+    p.classList.add('final');
+    p.appendChild(rotulo(f.titulo, 'hilos que aguantaron: ' + f.hilos + ' de 3'));
+    p.appendChild(prosa(f.parrafos));
+
+    var res = el('div', 'resumen');
+    res.innerHTML =
+      '<p class="fino">Recorriste <strong>' + contarVisitadas() + ' de 7</strong> atracciones · ' +
+      'juntaste <strong>' + estado.cartasGanadas + '</strong> cartas · ' +
+      'te cruzaste <strong>' + estado.encuentros + '</strong> ' +
+      (estado.encuentros === 1 ? 'vez' : 'veces') + ' con eso.</p>' +
+      '<p class="fino">La luna de esta noche: ' + Luna.texto(estado.luna) + '</p>';
+    p.appendChild(res);
+
+    var a = acciones();
+    a.appendChild(boton('Otra noche', function () {
+      nuevaPartida(estado.nombre);
+      pantallaPrologo();
+    }, 'bt-primario'));
+    a.appendChild(boton('Volver al principio', portada));
+    p.appendChild(a);
+    v.appendChild(p);
+    mostrar(v);
+  }
+
+  /* ==================== arranque ==================== */
+
+  function init(montaje, lienzo) {
+    raiz = montaje; cv = lienzo; cx = cv.getContext('2d');
+    medir();
+    window.addEventListener('resize', medir);
+    requestAnimationFrame(pintar);
+    portada();
+  }
+
+  return { init: init, _estado: function () { return estado; } };
+})();
+
+Juego.init(document.getElementById("ui"), document.getElementById("lienzo"));
+</script>

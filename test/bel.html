@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Bel — prueba de animación</title>
+<style>
+  body{margin:0;background:#0d1018;color:#d8d2c8;
+    font-family:ui-monospace,Consolas,monospace;padding:16px}
+  h1{font-size:1rem;font-weight:400;margin:0 0 12px;color:#e8a33d}
+  canvas{display:block;background:#151a26;border:1px solid #2a2634;margin-bottom:10px}
+  .fila{display:flex;gap:14px;flex-wrap:wrap;align-items:flex-start}
+  p{font-size:.72rem;color:#8b8496;margin:4px 0 14px}
+  b{color:#e6ded0;font-weight:400}
+</style>
+</head>
+<body>
+<h1>Bel caminando · a la derecha, a la izquierda, quieta y sentada</h1>
+<canvas id="cv" width="1100" height="260"></canvas>
+<p>De izquierda a derecha: <b>caminando lento</b> · <b>caminando rápido</b> ·
+   <b>quieta (respira y parpadea)</b> · <b>mirando a la izquierda</b> · <b>sentada</b></p>
+
+<h1>Tamaños: cómo se lee de lejos y de cerca</h1>
+<canvas id="cv2" width="1100" height="230"></canvas>
+<p>Escalas 0.45 · 0.7 · 1.0 · 1.4 · 1.9</p>
+
+<script src="../js/bel.js"></script>
+<script>
+const cv = document.getElementById('cv'), cx = cv.getContext('2d');
+const cv2 = document.getElementById('cv2'), cx2 = cv2.getContext('2d');
+
+const lento   = Bel.crear(0,0);  lento.vx = 60;
+const rapido  = Bel.crear(0,0);  rapido.vx = 240;
+const quieta  = Bel.crear(0,0);  quieta.vx = 0;
+const izq     = Bel.crear(0,0);  izq.vx = -150; izq.mirando = -1;
+
+const escalas = [0.45, 0.7, 1.0, 1.4, 1.9];
+const muestras = escalas.map(() => { const b = Bel.crear(0,0); b.vx = 150; return b; });
+
+let ultimo = performance.now();
+function bucle(ahora){
+  const dt = Math.min(.05, (ahora - ultimo) / 1000);
+  ultimo = ahora;
+
+  // --- fila 1 ---
+  cx.clearRect(0,0,cv.width,cv.height);
+  cx.strokeStyle = '#2a3040'; cx.lineWidth = 1;
+  cx.beginPath(); cx.moveTo(0, 210); cx.lineTo(cv.width, 210); cx.stroke();
+
+  [lento, rapido, quieta, izq].forEach((b, i) => {
+    Bel.actualizar(b, dt, Math.abs(b.vx) > 4);
+    Bel.dibujar(cx, b, 110 + i*200, 210, 1.3);
+  });
+  Bel.sentada(cx, 880, 200, 1.3, 1);
+
+  // --- fila 2 ---
+  cx2.clearRect(0,0,cv2.width,cv2.height);
+  cx2.strokeStyle = '#2a3040';
+  cx2.beginPath(); cx2.moveTo(0, 200); cx2.lineTo(cv2.width, 200); cx2.stroke();
+  let x = 90;
+  muestras.forEach((b, i) => {
+    Bel.actualizar(b, dt, true);
+    Bel.dibujar(cx2, b, x, 200, escalas[i]);
+    x += 90 + escalas[i]*110;
+  });
+
+  requestAnimationFrame(bucle);
+}
+requestAnimationFrame(bucle);
+</script>
+</body>
+</html>

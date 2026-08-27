@@ -1,0 +1,3364 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Kermés — prototipo</title>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;1,400&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%;background:#07090c;overflow:hidden;
+    font-family:'Cormorant Garamond',Georgia,serif;color:#e6ded0}
+  canvas{position:fixed;inset:0;width:100%;height:100%;display:block}
+
+  .hud{position:fixed;left:0;right:0;bottom:0;padding:18px;
+    display:flex;flex-direction:column;align-items:center;gap:9px;
+    pointer-events:none;z-index:3}
+  .aviso{font-family:'IBM Plex Mono',monospace;font-size:.7rem;letter-spacing:.14em;
+    text-transform:uppercase;color:#8f8798;background:rgba(7,9,13,.72);
+    padding:7px 13px;border:1px solid #2a2432;border-radius:2px}
+  .prompt{font-size:1.25rem;color:#ffd28a;text-shadow:0 2px 20px #000;
+    opacity:0;transition:opacity .2s;text-align:center;margin:0}
+  .prompt.on{opacity:1}
+  .prompt b{font-family:'IBM Plex Mono',monospace;font-size:.78rem;
+    border:1px solid #e8a33d;border-radius:3px;padding:2px 7px;margin-right:8px;
+    color:#e8a33d;font-weight:500}
+
+  /* Carga del sentido */
+  .carga{position:fixed;left:22px;top:20px;width:132px;z-index:3;pointer-events:none}
+  .carga .etq{font-family:'IBM Plex Mono',monospace;font-size:.58rem;
+    letter-spacing:.22em;text-transform:uppercase;color:#7d8aa8;margin-bottom:5px}
+  .carga .riel{height:3px;background:rgba(120,140,190,.18);border-radius:2px;overflow:hidden}
+  .carga .lleno{height:100%;width:100%;background:#8fa8e8;
+    transition:width .1s linear,background .3s}
+  .carga.gastando .lleno{background:#e8dc8f}
+  .carga.vacia .lleno{background:#e8848f}
+
+  /* El aviso del sentido: corto, arriba, sin caja */
+  .senal{position:fixed;left:0;right:0;top:11%;text-align:center;margin:0;
+    font-family:'IBM Plex Mono',monospace;font-size:.76rem;letter-spacing:.28em;
+    text-transform:uppercase;color:rgba(200,215,255,.92);
+    text-shadow:0 0 26px rgba(120,160,255,.7),0 2px 10px #000;
+    opacity:0;transition:opacity .3s;pointer-events:none;z-index:3}
+  .senal.on{opacity:1}
+
+  /* La ficha de información */
+  .ficha{position:fixed;left:50%;top:50%;transform:translate(-50%,-46%) scale(.96);
+    width:min(520px,86vw);z-index:4;opacity:0;pointer-events:none;
+    transition:opacity .45s cubic-bezier(.2,.8,.3,1),transform .45s cubic-bezier(.2,.8,.3,1)}
+  .ficha.on{opacity:1;transform:translate(-50%,-50%) scale(1)}
+  .ficha .caja{background:linear-gradient(160deg,rgba(13,17,30,.97),rgba(8,10,20,.97));
+    border:1px solid rgba(140,165,230,.28);padding:22px 26px 20px;
+    box-shadow:0 24px 70px rgba(0,0,0,.8),0 0 60px rgba(90,130,220,.10)}
+  .ficha .tipo{font-family:'IBM Plex Mono',monospace;font-size:.6rem;
+    letter-spacing:.3em;text-transform:uppercase;margin:0 0 10px}
+  .ficha .txt{font-size:1.08rem;line-height:1.62;margin:0;color:#e8e2d8}
+  .ficha .linea{height:1px;margin:14px 0 0;
+    background:linear-gradient(to right,rgba(140,165,230,.5),transparent)}
+
+  .tocar{position:fixed;inset:0;display:flex;z-index:1}
+  .tocar div{flex:1}
+  .tocar.oculto{display:none}
+  /* La observación va en una caja al pie: flotando en el medio se pisaba con
+     los carteles de las atracciones. */
+  .rotulo{position:fixed;left:50%;bottom:96px;transform:translateX(-50%) translateY(10px);
+    margin:0;width:min(600px,88vw);
+    background:linear-gradient(160deg,rgba(20,15,12,.96),rgba(12,9,8,.96));
+    border-left:2px solid rgba(232,163,61,.75);
+    padding:15px 20px;font-size:1.02rem;line-height:1.6;
+    color:rgba(250,232,208,.95);box-shadow:0 16px 44px rgba(0,0,0,.7);
+    opacity:0;transition:opacity .35s,transform .35s;pointer-events:none;z-index:3}
+  .rotulo.on{opacity:1;transform:translateX(-50%) translateY(0)}
+  .contador{position:fixed;top:20px;right:22px;margin:0;
+    font-family:'IBM Plex Mono',monospace;font-size:.72rem;letter-spacing:.18em;
+    color:rgba(190,205,255,.7);text-shadow:0 2px 14px #000;z-index:3}
+</style>
+</head>
+<body>
+<canvas id="cv"></canvas>
+<div class="tocar" id="tocar"><div data-dir="-1"></div><div data-dir="1"></div></div>
+
+<div class="carga" id="carga">
+  <div class="etq">sentido</div>
+  <div class="riel"><div class="lleno" id="cargaLleno"></div></div>
+</div>
+<p class="contador" id="contador">0 / 9</p>
+<p class="senal" id="senal"></p>
+<p class="rotulo" id="rotulo"></p>
+
+<div class="ficha" id="ficha">
+  <div class="caja">
+    <p class="tipo" id="fichaTipo"></p>
+    <p class="txt" id="fichaTxt"></p>
+    <div class="linea"></div>
+  </div>
+</div>
+
+<div class="hud">
+  <p class="prompt" id="prompt"></p>
+  <p class="aviso" id="aviso">← → para caminar · espacio: sentido · E: acercarte</p>
+</div>
+
+<script>
+/* ===== js/luna.js ===== */
+/* La luna de esta noche, de verdad.
+   Versión compacta: alcanza con la longitud del Sol y de la Luna para sacar la
+   fase y el signo. Serie lunar ELP-2000 truncada (Meeus cap. 47) y Sol por la
+   fórmula de precisión reducida del cap. 25, que da mejor de 0.01°.
+   La fase decide qué atracciones están abiertas, así que cambia cada noche. */
+var Luna = (function () {
+  'use strict';
+
+  var D2R = Math.PI / 180;
+  function norm360(x) { x = x % 360; return x < 0 ? x + 360 : x; }
+  function sind(x) { return Math.sin(x * D2R); }
+  function cosd(x) { return Math.cos(x * D2R); }
+
+  function julianDay(y, m, d, horas) {
+    horas = horas || 0;
+    if (m <= 2) { y -= 1; m += 12; }
+    var a = Math.floor(y / 100);
+    var b = 2 - a + Math.floor(a / 4);
+    return Math.floor(365.25 * (y + 4716)) + Math.floor(30.6001 * (m + 1))
+      + d + b - 1524.5 + horas / 24;
+  }
+
+  /* Términos principales de la serie de longitud lunar: [D, M, M', F, coef].
+     Con estos treinta el error queda muy por debajo del grado, que es todo lo
+     que hace falta para saber la fase y en qué signo está. */
+  var TERMINOS = [
+    [0,0,1,0,6288774],[2,0,-1,0,1274027],[2,0,0,0,658314],[0,0,2,0,213618],
+    [0,1,0,0,-185116],[0,0,0,2,-114332],[2,0,-2,0,58793],[2,-1,-1,0,57066],
+    [2,0,1,0,53322],[2,-1,0,0,45758],[0,1,-1,0,-40923],[1,0,0,0,-34720],
+    [0,1,1,0,-30383],[2,0,0,-2,15327],[0,0,1,2,-12528],[0,0,1,-2,10980],
+    [4,0,-1,0,10675],[0,0,3,0,10034],[4,0,-2,0,8548],[2,1,-1,0,-7888],
+    [2,1,0,0,-6766],[1,0,-1,0,-5163],[1,1,0,0,4987],[2,-1,1,0,4036],
+    [2,0,2,0,3994],[4,0,0,0,3861],[2,0,-3,0,3665],[0,1,-2,0,-2689],
+    [2,0,-1,2,-2602],[2,-1,-2,0,2390],[1,0,1,0,-2348],[2,-2,0,0,2236]
+  ];
+
+  function longitudLuna(jde) {
+    var T = (jde - 2451545.0) / 36525.0;
+    var Lp = 218.3164477 + 481267.88123421 * T - 0.0015786 * T * T + Math.pow(T, 3) / 538841;
+    var D = 297.8501921 + 445267.1114034 * T - 0.0018819 * T * T;
+    var M = 357.5291092 + 35999.0502909 * T - 0.0001536 * T * T;
+    var Mp = 134.9633964 + 477198.8675055 * T + 0.0087414 * T * T;
+    var F = 93.2720950 + 483202.0175233 * T - 0.0036539 * T * T;
+    var E = 1 - 0.002516 * T - 0.0000074 * T * T;
+    var A1 = 119.75 + 131.849 * T, A2 = 53.09 + 479264.290 * T;
+
+    var suma = 0;
+    for (var i = 0; i < TERMINOS.length; i++) {
+      var r = TERMINOS[i];
+      var arg = r[0] * D + r[1] * M + r[2] * Mp + r[3] * F;
+      var ecc = Math.abs(r[1]) === 1 ? E : (Math.abs(r[1]) === 2 ? E * E : 1);
+      suma += r[4] * ecc * sind(arg);
+    }
+    suma += 3958 * sind(A1) + 1962 * sind(Lp - F) + 318 * sind(A2);
+    return norm360(Lp + suma / 1000000);
+  }
+
+  function longitudSol(jde) {
+    var T = (jde - 2451545.0) / 36525.0;
+    var L0 = 280.46646 + 36000.76983 * T + 0.0003032 * T * T;
+    var M = 357.52911 + 35999.05029 * T - 0.0001537 * T * T;
+    var C = (1.914602 - 0.004817 * T - 0.000014 * T * T) * sind(M)
+      + (0.019993 - 0.000101 * T) * sind(2 * M)
+      + 0.000289 * sind(3 * M);
+    return norm360(L0 + C);
+  }
+
+  var SIGNOS = ['Aries', 'Tauro', 'Géminis', 'Cáncer', 'Leo', 'Virgo',
+    'Libra', 'Escorpio', 'Sagitario', 'Capricornio', 'Acuario', 'Piscis'];
+  var GLIFOS = ['♈', '♉', '♊', '♋', '♌', '♍', '♎', '♏', '♐', '♑', '♒', '♓'];
+  var ELEMENTOS = ['fuego', 'tierra', 'aire', 'agua'];
+
+  /* Nombre de la fase según la elongación, con los cortes que se usan siempre. */
+  function nombreFase(elong) {
+    if (elong < 22.5 || elong >= 337.5) return 'luna nueva';
+    if (elong < 67.5) return 'creciente';
+    if (elong < 112.5) return 'cuarto creciente';
+    if (elong < 157.5) return 'gibosa creciente';
+    if (elong < 202.5) return 'luna llena';
+    if (elong < 247.5) return 'gibosa menguante';
+    if (elong < 292.5) return 'cuarto menguante';
+    return 'menguante';
+  }
+
+  /* Estado de la luna en una fecha. Sin argumento, ahora mismo. */
+  function estado(fecha) {
+    var f = fecha || new Date();
+    var jd = julianDay(f.getUTCFullYear(), f.getUTCMonth() + 1, f.getUTCDate(),
+      f.getUTCHours() + f.getUTCMinutes() / 60);
+    // ΔT ronda los 70 s en estas décadas: para la fase es despreciable, pero
+    // se aplica igual porque no cuesta nada.
+    var jde = jd + 70 / 86400;
+    var ll = longitudLuna(jde), ls = longitudSol(jde);
+    var elong = norm360(ll - ls);
+    var iluminacion = (1 - cosd(elong)) / 2;
+    var signo = Math.floor(ll / 30);
+    return {
+      jd: jd,
+      longitud: ll,
+      longitudSol: ls,
+      elongacion: elong,
+      iluminacion: iluminacion,
+      creciente: elong < 180,
+      fase: nombreFase(elong),
+      signo: signo,
+      signoNombre: SIGNOS[signo],
+      signoGlifo: GLIFOS[signo],
+      elemento: ELEMENTOS[signo % 4],
+      grado: ll - signo * 30,
+      // Los treinta días del ciclo, para elegir variantes con algo estable.
+      diaLunar: Math.floor(elong / 360 * 29.53)
+    };
+  }
+
+  function texto(e) {
+    var g = Math.floor(e.grado);
+    var m = Math.floor((e.grado - g) * 60);
+    return e.fase + ' · ' + g + '°' + (m < 10 ? '0' : '') + m + "' " + e.signoGlifo +
+      ' ' + e.signoNombre;
+  }
+
+  return {
+    julianDay: julianDay,
+    longitudLuna: longitudLuna,
+    longitudSol: longitudSol,
+    estado: estado,
+    texto: texto,
+    SIGNOS: SIGNOS, GLIFOS: GLIFOS
+  };
+})();
+
+/* ===== js/dibujo.js ===== */
+/* Primitivas de dibujo compartidas por todas las escenas.
+   Nada de imágenes: la feria entera se dibuja con canvas, así pesa poco y
+   se puede animar cualquier cosa. Todas las medidas van en fracciones de la
+   pantalla, para que la composición aguante cualquier tamaño. */
+var Dib = (function () {
+  'use strict';
+
+  var cx = null, W = 0, H = 0, t = 0, luces = true;
+
+  function usar(ctx, w, h, tiempo, hayLuces) {
+    cx = ctx; W = w; H = h; t = tiempo;
+    luces = hayLuces !== false;
+  }
+  var X = function (u) { return W * u; };
+  var Y = function (v) { return H * v; };
+  var U = function (u) { return Math.min(W, H * 1.9) * u; };
+
+  /* --- fondo --- */
+
+  var estrellas = [];
+  function sembrar(n) {
+    estrellas = [];
+    n = n || Math.round(W * H / 8000);
+    for (var i = 0; i < n; i++) {
+      estrellas.push({
+        x: Math.random() * W, y: Math.random() * H * .70,
+        r: Math.random() * 1.2 + .25, f: Math.random() * 6.28,
+        v: .4 + Math.random() * 1.1
+      });
+    }
+  }
+
+  // paleta: cada escena puede teñir su cielo
+  function cielo(paleta) {
+    var p = paleta || ['#070912', '#0c0f1f', '#171227', '#0a0810'];
+    var g = cx.createLinearGradient(0, 0, 0, H);
+    g.addColorStop(0, p[0]); g.addColorStop(.42, p[1]);
+    g.addColorStop(.72, p[2]); g.addColorStop(1, p[3]);
+    cx.fillStyle = g; cx.fillRect(0, 0, W, H);
+
+    cx.save();
+    for (var i = 0; i < estrellas.length; i++) {
+      var e = estrellas[i];
+      cx.globalAlpha = .2 + .5 * (0.5 + 0.5 * Math.sin(t * e.v + e.f));
+      cx.fillStyle = '#cfd6ee';
+      cx.beginPath(); cx.arc(e.x, e.y, e.r, 0, 6.2832); cx.fill();
+    }
+    cx.restore();
+  }
+
+  /* Luna con su fase real: iluminacion 0 (nueva) a 1 (llena).
+     creciente decide de que lado queda la sombra. */
+  function luna(u, v, radio, iluminacion, creciente) {
+    var lx = X(u), ly = Y(v), lr = U(radio);
+    var brillo = .05 + .17 * iluminacion;
+    var halo = cx.createRadialGradient(lx, ly, lr * .8, lx, ly, lr * 4.2);
+    halo.addColorStop(0, 'rgba(214,206,184,' + brillo + ')');
+    halo.addColorStop(.4, 'rgba(214,206,184,' + (brillo * .3) + ')');
+    halo.addColorStop(1, 'rgba(214,206,184,0)');
+    cx.fillStyle = halo;
+    cx.beginPath(); cx.arc(lx, ly, lr * 4.2, 0, 6.2832); cx.fill();
+
+    cx.fillStyle = '#ded4bc';
+    cx.beginPath(); cx.arc(lx, ly, lr, 0, 6.2832); cx.fill();
+    // La sombra es otro circulo corrido: da media luna, gibosa o nueva.
+    if (iluminacion < .98) {
+      var corr = iluminacion * 2.05 * lr * (creciente ? -1 : 1);
+      cx.save();
+      cx.beginPath(); cx.arc(lx, ly, lr, 0, 6.2832); cx.clip();
+      cx.fillStyle = 'rgba(12,15,31,.94)';
+      cx.beginPath(); cx.arc(lx + corr, ly, lr * 1.02, 0, 6.2832); cx.fill();
+      cx.restore();
+    }
+  }
+
+  /* --- luz --- */
+
+  // Bombita: punto nítido con halo corto. El desenfoque largo las volvía manchas.
+  function bombita(x, y, r, col, p) {
+    if (!luces) {
+      cx.fillStyle = '#191522';
+      cx.beginPath(); cx.arc(x, y, r * .85, 0, 6.2832); cx.fill();
+      return;
+    }
+    cx.save(); cx.globalCompositeOperation = 'lighter';
+    var g = cx.createRadialGradient(x, y, 0, x, y, r * 4.5);
+    g.addColorStop(0, 'rgba(' + col + ',' + (.42 * p) + ')');
+    g.addColorStop(.45, 'rgba(' + col + ',' + (.13 * p) + ')');
+    g.addColorStop(1, 'rgba(' + col + ',0)');
+    cx.fillStyle = g;
+    cx.beginPath(); cx.arc(x, y, r * 4.5, 0, 6.2832); cx.fill();
+    cx.fillStyle = 'rgba(255,242,220,' + (.95 * p) + ')';
+    cx.beginPath(); cx.arc(x, y, r, 0, 6.2832); cx.fill();
+    cx.restore();
+  }
+
+  // Resplandor suelto, para focos y bocas de carpa.
+  function resplandor(x, y, radio, col, alfa) {
+    cx.save(); cx.globalCompositeOperation = 'lighter';
+    var g = cx.createRadialGradient(x, y, 0, x, y, radio);
+    g.addColorStop(0, 'rgba(' + col + ',' + alfa + ')');
+    g.addColorStop(.45, 'rgba(' + col + ',' + (alfa * .35) + ')');
+    g.addColorStop(1, 'rgba(' + col + ',0)');
+    cx.fillStyle = g;
+    cx.beginPath(); cx.arc(x, y, radio, 0, 6.2832); cx.fill();
+    cx.restore();
+  }
+
+  var COLORES_GUIRNALDA = ['255,196,128', '196,96,104', '150,196,176'];
+
+  function guirnalda(u1, v1, u2, v2, caida, semilla) {
+    var x1 = X(u1), y1 = Y(v1), x2 = X(u2), y2 = Y(v2);
+    cx.save();
+    cx.strokeStyle = 'rgba(8,6,16,.95)'; cx.lineWidth = 1.4;
+    cx.beginPath(); cx.moveTo(x1, y1);
+    cx.quadraticCurveTo((x1 + x2) / 2, (y1 + y2) / 2 + caida, x2, y2);
+    cx.stroke();
+    var N = Math.max(7, Math.round(Math.abs(x2 - x1) / 38));
+    for (var i = 0; i <= N; i++) {
+      var u = i / N, iu = 1 - u;
+      var x = iu * iu * x1 + 2 * iu * u * ((x1 + x2) / 2) + u * u * x2;
+      var y = iu * iu * y1 + 2 * iu * u * ((y1 + y2) / 2 + caida) + u * u * y2;
+      if (luces && Math.sin(t * 2.2 + i * .9 + semilla) < -.78) continue;  // quemada
+      var p = .5 + .5 * (0.5 + 0.5 * Math.sin(t * 2.9 + i * 1.3 + semilla));
+      bombita(x, y, 1.9, COLORES_GUIRNALDA[i % 3], p);
+    }
+    cx.restore();
+  }
+
+  /* --- construcciones --- */
+
+  function carpa(u, vBase, ancho, alto, encendida) {
+    var x = X(u), base = Y(vBase), an = U(ancho), al = H * alto;
+    cx.save();
+    var cima = base - al * 1.12, hombro = base - al * .42;
+    var gajos = 7;
+    for (var i = 0; i < gajos; i++) {
+      var u0 = i / gajos, u1 = (i + 1) / gajos;
+      var x0 = x - an / 2 + an * u0, x1 = x - an / 2 + an * u1;
+      cx.fillStyle = (i % 2 === 0) ? '#0b0812' : '#141021';
+      cx.beginPath();
+      cx.moveTo(x, cima);
+      cx.lineTo(x0, hombro + Math.pow(Math.abs(u0 - .5) * 2, 2) * al * .16);
+      cx.lineTo(x1, hombro + Math.pow(Math.abs(u1 - .5) * 2, 2) * al * .16);
+      cx.closePath(); cx.fill();
+    }
+    cx.fillStyle = '#0b0812';
+    cx.beginPath();
+    cx.moveTo(x - an / 2, hombro + al * .16); cx.lineTo(x - an / 2, base);
+    cx.lineTo(x + an / 2, base); cx.lineTo(x + an / 2, hombro + al * .16);
+    cx.closePath(); cx.fill();
+
+    if (encendida && luces) {
+      var g = cx.createLinearGradient(x, hombro, x, base);
+      g.addColorStop(0, 'rgba(232,163,61,.5)');
+      g.addColorStop(1, 'rgba(168,50,63,.10)');
+      cx.fillStyle = g;
+      cx.beginPath();
+      cx.moveTo(x - an * .15, base); cx.lineTo(x - an * .11, hombro + al * .08);
+      cx.quadraticCurveTo(x, hombro - al * .02, x + an * .11, hombro + al * .08);
+      cx.lineTo(x + an * .15, base); cx.closePath(); cx.fill();
+    }
+    cx.strokeStyle = '#0b0812'; cx.lineWidth = 2;
+    cx.beginPath(); cx.moveTo(x, cima); cx.lineTo(x, cima - al * .16); cx.stroke();
+    cx.fillStyle = luces ? '#a8323f' : '#17121f';
+    var on = Math.sin(t * 2.2 + x) * 3;
+    cx.beginPath();
+    cx.moveTo(x, cima - al * .16); cx.lineTo(x + 13 + on, cima - al * .115);
+    cx.lineTo(x, cima - al * .07); cx.closePath(); cx.fill();
+    cx.restore();
+  }
+
+  function portal(u, vBase, ancho, alto, rotulo) {
+    var x = X(u), base = Y(vBase), an = U(ancho), al = H * alto;
+    cx.save();
+    var gr = an * .062;
+    cx.fillStyle = '#0b0812';
+    cx.fillRect(x - an / 2, base - al, gr, al);
+    cx.fillRect(x + an / 2 - gr, base - al, gr, al);
+    cx.beginPath();
+    cx.moveTo(x - an / 2, base - al);
+    cx.quadraticCurveTo(x, base - al * 1.46, x + an / 2, base - al);
+    cx.lineTo(x + an / 2, base - al * .88);
+    cx.quadraticCurveTo(x, base - al * 1.30, x - an / 2, base - al * .88);
+    cx.closePath(); cx.fill();
+
+    if (luces) {
+      var N = 17;
+      for (var i = 0; i <= N; i++) {
+        var uu = i / N, iu = 1 - uu;
+        var bx = iu * iu * (x - an / 2) + 2 * iu * uu * x + uu * uu * (x + an / 2);
+        var by = iu * iu * (base - al) + 2 * iu * uu * (base - al * 1.38) + uu * uu * (base - al);
+        if (i === 5 && Math.sin(t * 7) < 0) continue;      // una que falla
+        bombita(bx, by, 2.1, '255,206,140', .55 + .45 * Math.sin(t * 2.4 + i * .7));
+      }
+      if (rotulo) {
+        cx.save();
+        cx.globalCompositeOperation = 'lighter';
+        cx.font = '600 ' + Math.round(al * .17) + "px 'Cormorant Garamond',serif";
+        cx.textAlign = 'center'; cx.textBaseline = 'middle';
+        cx.shadowColor = 'rgba(255,168,64,.9)'; cx.shadowBlur = 26;
+        cx.fillStyle = 'rgba(255,200,116,.92)';
+        cx.fillText(rotulo, x, base - al * 1.08);
+        if (Math.sin(t * 11) < -.2) {
+          cx.shadowBlur = 0; cx.fillStyle = 'rgba(10,8,16,.85)';
+          cx.fillText(rotulo.slice(0, -2) + ' ' + rotulo.slice(-1), x, base - al * 1.08);
+        }
+        cx.restore();
+      }
+      cx.save();
+      cx.globalCompositeOperation = 'lighter';
+      var g2 = cx.createRadialGradient(x, base, 0, x, base, an * .72);
+      g2.addColorStop(0, 'rgba(255,176,84,.11)');
+      g2.addColorStop(.45, 'rgba(255,166,78,.04)');
+      g2.addColorStop(1, 'rgba(255,166,78,0)');
+      cx.fillStyle = g2;
+      cx.beginPath(); cx.ellipse(x, base + al * .05, an * .72, al * .13, 0, 0, 6.2832); cx.fill();
+      cx.restore();
+    }
+    cx.restore();
+  }
+
+  function vueltaAlMundo(u, v, radio, giro) {
+    var cxp = X(u), cyp = Y(v), R = U(radio);
+    cx.save();
+    cx.strokeStyle = '#080610'; cx.lineWidth = Math.max(2, R * .028);
+    cx.beginPath(); cx.arc(cxp, cyp, R, 0, 6.2832); cx.stroke();
+    cx.beginPath(); cx.arc(cxp, cyp, R * .92, 0, 6.2832); cx.stroke();
+    var N = 16;
+    for (var i = 0; i < N; i++) {
+      var a = giro + i * 6.2832 / N;
+      var x = cxp + Math.cos(a) * R, y = cyp + Math.sin(a) * R;
+      cx.strokeStyle = '#080610'; cx.lineWidth = Math.max(1.2, R * .014);
+      cx.beginPath(); cx.moveTo(cxp, cyp); cx.lineTo(x, y); cx.stroke();
+      var cb = R * .07;
+      cx.fillStyle = '#080610'; cx.fillRect(x - cb / 2, y, cb, cb * 1.3);
+      if (Math.sin(t * 1.5 + i * 1.7) > -.55)
+        bombita(x, y, Math.max(1.3, R * .014), '255,198,120', .5 + .5 * Math.sin(t * 2.6 + i));
+    }
+    cx.strokeStyle = '#080610'; cx.lineWidth = Math.max(2.5, R * .042);
+    cx.beginPath();
+    cx.moveTo(cxp - R * .42, cyp + R * 1.42); cx.lineTo(cxp, cyp);
+    cx.lineTo(cxp + R * .42, cyp + R * 1.42); cx.stroke();
+    cx.beginPath();
+    cx.moveTo(cxp - R * .26, cyp + R * .9); cx.lineTo(cxp + R * .26, cyp + R * .9); cx.stroke();
+    cx.restore();
+  }
+
+  /* Calesita: techo cónico, caballos girando en perspectiva achatada. */
+  function calesita(u, vBase, ancho, alto, giro) {
+    var x = X(u), base = Y(vBase), an = U(ancho), al = H * alto;
+    cx.save();
+    // Plataforma.
+    cx.fillStyle = '#0b0812';
+    cx.beginPath(); cx.ellipse(x, base, an * .5, an * .10, 0, 0, 6.2832); cx.fill();
+    // Caballos y barras, ordenados por profundidad.
+    var N = 8, piezas = [];
+    for (var i = 0; i < N; i++) {
+      var a = giro + i * 6.2832 / N;
+      piezas.push({ a: a, z: Math.sin(a) });
+    }
+    piezas.sort(function (p, q) { return p.z - q.z; });
+    piezas.forEach(function (p) {
+      var px = x + Math.cos(p.a) * an * .40;
+      var py = base + Math.sin(p.a) * an * .085;
+      var sube = Math.sin(t * 2.2 + p.a * 2) * al * .045;
+      cx.strokeStyle = '#1b1626'; cx.lineWidth = Math.max(1.5, an * .008);
+      cx.beginPath(); cx.moveTo(px, py); cx.lineTo(px, py - al * .70); cx.stroke();
+      // Silueta de caballo, esquemática.
+      cx.fillStyle = '#0d0a15';
+      var cy = py - al * .28 + sube, cw = an * .075, ch = al * .10;
+      cx.beginPath();
+      cx.ellipse(px, cy, cw, ch * .55, 0, 0, 6.2832); cx.fill();
+      cx.beginPath();
+      cx.moveTo(px + cw * .55, cy - ch * .2);
+      cx.lineTo(px + cw * 1.05, cy - ch * .95);
+      cx.lineTo(px + cw * .72, cy - ch * 1.0);
+      cx.lineTo(px + cw * .30, cy - ch * .35);
+      cx.closePath(); cx.fill();
+      cx.strokeStyle = '#0d0a15'; cx.lineWidth = Math.max(1.2, an * .007);
+      [-.5, -.15, .2, .55].forEach(function (o) {
+        cx.beginPath();
+        cx.moveTo(px + cw * o, cy + ch * .35);
+        cx.lineTo(px + cw * o + cw * .12, cy + ch * .95);
+        cx.stroke();
+      });
+    });
+    // Techo cónico a gajos.
+    var cima = base - al;
+    for (var j = 0; j < 10; j++) {
+      var a0 = j / 10 * 6.2832, a1 = (j + 1) / 10 * 6.2832;
+      cx.fillStyle = (j % 2 === 0) ? '#12101d' : '#0a0812';
+      cx.beginPath();
+      cx.moveTo(x, cima - al * .22);
+      cx.lineTo(x + Math.cos(a0) * an * .52, base - al * .74 + Math.sin(a0) * an * .105);
+      cx.lineTo(x + Math.cos(a1) * an * .52, base - al * .74 + Math.sin(a1) * an * .105);
+      cx.closePath(); cx.fill();
+    }
+    // Bombitas del borde del techo.
+    for (var k = 0; k < 14; k++) {
+      var ak = k / 14 * 6.2832;
+      var bx = x + Math.cos(ak) * an * .52;
+      var by = base - al * .74 + Math.sin(ak) * an * .105;
+      if (Math.sin(ak) < -.55) continue;    // las de atrás no se ven
+      bombita(bx, by, 1.9, '255,200,132', .5 + .5 * Math.sin(t * 3 + k));
+    }
+    cx.restore();
+  }
+
+  /* --- carteles ---
+     Los nombres de las atracciones tienen que estar pintados sobre algo, no
+     flotando en el aire. Cada cartel es una tabla de madera con sus vetas,
+     colgada de dos cadenas de un travesaño, con luces alrededor. */
+
+  var MADERA = ['#7a5334', '#6b4729', '#875c3a', '#5e3f26'];
+
+  /* x, y: el punto del que cuelga (el travesaño).
+     opciones: { color, luces, ancho, alto, inclina } */
+  function cartel(x, y, texto, op) {
+    op = op || {};
+    var an = op.ancho || U(.20);
+    var al = op.alto || an * .30;
+    var tinte = op.color || '#7a5334';
+    var pinta = op.tinta || '#f0dcb4';
+    // Cuelga con un vaivén muy leve, como cualquier cartel colgado.
+    var vaiven = Math.sin(t * .55 + x * .01) * .012;
+    var largoCadena = op.cadena === undefined ? al * .42 : op.cadena;
+
+    cx.save();
+
+    // Travesaño del que cuelga.
+    if (op.travesano !== false) {
+      cx.fillStyle = '#2a2030';
+      cx.fillRect(x - an * .60, y - 4, an * 1.20, 7);
+      cx.fillStyle = '#3a2e42';
+      cx.fillRect(x - an * .60, y - 4, an * 1.20, 3);
+    }
+
+    cx.translate(x, y);
+    cx.rotate(vaiven);
+
+    // Cadenas.
+    cx.strokeStyle = '#4a4055';
+    cx.lineWidth = Math.max(1.5, an * .012);
+    [-an * .38, an * .38].forEach(function (cxi) {
+      cx.beginPath();
+      cx.moveTo(cxi, 0);
+      cx.lineTo(cxi, largoCadena);
+      cx.stroke();
+      // Eslabones.
+      cx.fillStyle = '#5a4e66';
+      for (var i = 1; i < 4; i++) {
+        cx.beginPath();
+        cx.arc(cxi, largoCadena * i / 4, Math.max(1.2, an * .009), 0, 6.2832);
+        cx.fill();
+      }
+    });
+
+    var ty = largoCadena;
+
+    // Canto: la tabla tiene espesor.
+    cx.fillStyle = '#3e2a1a';
+    tabla(cx, 0, ty + 3, an, al);
+
+    // Cara de la tabla, con las vetas.
+    cx.save();
+    tabla(cx, 0, ty, an, al);
+    cx.clip();
+    cx.fillStyle = tinte;
+    cx.fillRect(-an * .55, ty - 4, an * 1.1, al + 8);
+    // Vetas: franjas horizontales apenas distintas.
+    for (var v = 0; v < 7; v++) {
+      cx.fillStyle = MADERA[v % MADERA.length];
+      cx.globalAlpha = .22;
+      var vy = ty + al * (v / 7) + Math.sin(v * 2.3 + x) * 2;
+      cx.fillRect(-an * .55, vy, an * 1.1, al * .07);
+    }
+    cx.globalAlpha = 1;
+    // Sombra interior arriba y luz abajo: le da volumen.
+    var g = cx.createLinearGradient(0, ty, 0, ty + al);
+    g.addColorStop(0, 'rgba(0,0,0,.30)');
+    g.addColorStop(.35, 'rgba(0,0,0,0)');
+    g.addColorStop(1, 'rgba(255,210,150,.10)');
+    cx.fillStyle = g;
+    cx.fillRect(-an * .55, ty - 4, an * 1.1, al + 8);
+    cx.restore();
+
+    // Borde pintado.
+    cx.strokeStyle = 'rgba(30,18,10,.75)';
+    cx.lineWidth = Math.max(1.5, an * .010);
+    tabla(cx, 0, ty, an, al);
+    cx.stroke();
+
+    // Tornillos en las esquinas.
+    cx.fillStyle = '#2e2418';
+    [[-an * .42, ty + al * .18], [an * .42, ty + al * .18],
+     [-an * .42, ty + al * .82], [an * .42, ty + al * .82]].forEach(function (t2) {
+      cx.beginPath(); cx.arc(t2[0], t2[1], Math.max(1.2, an * .011), 0, 6.2832); cx.fill();
+    });
+
+    // El nombre, pintado a mano sobre la tabla.
+    var cuerpo = op.cuerpo || al * .46;
+    cx.font = "600 " + Math.round(cuerpo) + "px 'Cormorant Garamond',serif";
+    cx.textAlign = 'center';
+    cx.textBaseline = 'middle';
+    // Relieve: la pintura está gastada y deja ver la madera.
+    cx.fillStyle = 'rgba(20,10,4,.55)';
+    cx.fillText(texto, 1.5, ty + al * .52 + 1.5);
+    cx.fillStyle = pinta;
+    cx.fillText(texto, 0, ty + al * .52);
+
+    cx.restore();
+
+    // Bombitas del borde de arriba.
+    if (op.luces !== false) {
+      var N = op.nLuces || 7;
+      for (var b = 0; b < N; b++) {
+        var bx = x - an * .46 + an * .92 * b / (N - 1);
+        var by = y + largoCadena - al * .06;
+        if (Math.sin(t * 2.6 + b * 1.3 + x) < -.86) continue;
+        bombita(bx, by, 2, op.colorLuz || '255,204,140',
+          .5 + .5 * Math.sin(t * 2.2 + b * .8));
+      }
+    }
+  }
+
+  /* Contorno de la tabla, con las esquinas comidas como las de feria. */
+  function tabla(cx, x, y, an, al) {
+    var r = al * .16;
+    cx.beginPath();
+    cx.moveTo(x - an * .5 + r, y);
+    cx.lineTo(x + an * .5 - r, y);
+    cx.lineTo(x + an * .5, y + r);
+    cx.lineTo(x + an * .5, y + al - r);
+    cx.lineTo(x + an * .5 - r, y + al);
+    cx.lineTo(x - an * .5 + r, y + al);
+    cx.lineTo(x - an * .5, y + al - r);
+    cx.lineTo(x - an * .5, y + r);
+    cx.closePath();
+  }
+
+  /* Cartel clavado sobre dos patas, para el piso. */
+  function carteliPie(x, piso, texto, op) {
+    op = op || {};
+    var an = op.ancho || U(.15);
+    var al = op.alto || an * .34;
+    var alto = op.altura || al * 2.2;
+    cx.save();
+    // Patas.
+    cx.fillStyle = '#4a3524';
+    cx.fillRect(x - an * .30, piso - alto, an * .07, alto);
+    cx.fillRect(x + an * .23, piso - alto, an * .07, alto);
+    cx.restore();
+    cartel(x, piso - alto - 2, texto,
+      Object.assign({ cadena: 0, travesano: false, ancho: an, alto: al }, op));
+  }
+
+  /* --- ambiente --- */
+
+  function suelo(vHorizonte, charcos) {
+    var y0 = Y(vHorizonte) - 6;
+    var g = cx.createLinearGradient(0, y0, 0, H);
+    g.addColorStop(0, 'rgba(7,5,13,.5)');
+    g.addColorStop(.35, '#070510');
+    g.addColorStop(1, '#040308');
+    cx.fillStyle = g; cx.fillRect(0, y0, W, H - y0);
+    if (luces && charcos) {
+      cx.save(); cx.globalCompositeOperation = 'lighter';
+      charcos.forEach(function (c, i) {
+        var x = X(c[0]) + Math.sin(t * .45 + i * 2) * 4;
+        var y = Y(vHorizonte) + H * (.055 + i * .028);
+        var rx = U(.055 + c[1] * .18), ry = H * .012;
+        var gg = cx.createRadialGradient(x, y, 0, x, y, rx);
+        gg.addColorStop(0, 'rgba(255,178,92,' + (c[1] * .55) + ')');
+        gg.addColorStop(1, 'rgba(255,178,92,0)');
+        cx.fillStyle = gg;
+        cx.beginPath(); cx.ellipse(x, y, rx, ry, 0, 0, 6.2832); cx.fill();
+      });
+      cx.restore();
+    }
+  }
+
+  function niebla(v, alto, vel, alfa, tono) {
+    var y = Y(v);
+    cx.save(); cx.globalCompositeOperation = 'screen';
+    var off = (t * vel) % (W + 400) - 200;
+    for (var i = -1; i < 3; i++) {
+      var x = off + i * (W * .6);
+      var g = cx.createRadialGradient(x, y, 0, x, y, W * .4);
+      g.addColorStop(0, 'rgba(' + tono + ',' + alfa + ')');
+      g.addColorStop(1, 'rgba(' + tono + ',0)');
+      cx.fillStyle = g;
+      cx.beginPath(); cx.ellipse(x, y, W * .4, H * alto, 0, 0, 6.2832); cx.fill();
+    }
+    cx.restore();
+  }
+
+  /* --- figuras --- */
+
+  /* Bel de espaldas. escala en fracción de alto de pantalla. */
+  function bel(u, vBase, escala, contraluz) {
+    var base = Y(vBase), h = H * escala, x = X(u);
+    cx.save();
+    cx.fillStyle = '#030408';
+    cx.beginPath();
+    cx.moveTo(x - h * .185, base);
+    cx.quadraticCurveTo(x - h * .205, base - h * .42, x - h * .125, base - h * .60);
+    cx.quadraticCurveTo(x - h * .098, base - h * .70, x, base - h * .725);
+    cx.quadraticCurveTo(x + h * .098, base - h * .70, x + h * .125, base - h * .60);
+    cx.quadraticCurveTo(x + h * .205, base - h * .42, x + h * .185, base);
+    cx.closePath(); cx.fill();
+    cx.beginPath(); cx.arc(x, base - h * .815, h * .090, 0, 6.2832); cx.fill();
+    cx.beginPath();
+    cx.moveTo(x - h * .088, base - h * .83);
+    cx.quadraticCurveTo(x - h * .122, base - h * .70, x - h * .085, base - h * .615);
+    cx.quadraticCurveTo(x - h * .052, base - h * .585, x - h * .030, base - h * .612);
+    cx.quadraticCurveTo(x, base - h * .632, x + h * .030, base - h * .612);
+    cx.quadraticCurveTo(x + h * .052, base - h * .585, x + h * .085, base - h * .615);
+    cx.quadraticCurveTo(x + h * .122, base - h * .70, x + h * .088, base - h * .83);
+    cx.closePath(); cx.fill();
+    cx.save();
+    cx.globalAlpha = .5; cx.fillStyle = '#000';
+    cx.beginPath(); cx.ellipse(x, base + 2, h * .19, h * .026, 0, 0, 6.2832); cx.fill();
+    cx.restore();
+    if (luces && contraluz !== false) {
+      cx.globalCompositeOperation = 'lighter';
+      cx.strokeStyle = 'rgba(255,192,116,.34)'; cx.lineWidth = 1.8;
+      cx.beginPath();
+      cx.moveTo(x - h * .106, base - h * .60);
+      cx.quadraticCurveTo(x, base - h * .705, x + h * .106, base - h * .60);
+      cx.stroke();
+      cx.strokeStyle = 'rgba(255,192,116,.26)'; cx.lineWidth = 1.5;
+      cx.beginPath(); cx.arc(x, base - h * .815, h * .082, -2.6, -.5); cx.stroke();
+    }
+    cx.restore();
+  }
+
+  /* La presencia: una figura que no termina de tener forma.
+     intensidad 0 a 1 la hace más definida y más cerca. */
+  function presencia(u, vBase, escala, intensidad) {
+    var base = Y(vBase), h = H * escala, x = X(u);
+    var q = Math.max(0, Math.min(1, intensidad));
+    cx.save();
+    // Se dibuja como varias siluetas apenas corridas: nunca cierra en un borde.
+    for (var c = 0; c < 3; c++) {
+      var off = Math.sin(t * 1.3 + c * 2.1) * h * .012 * (1 + c);
+      cx.globalAlpha = (c === 0 ? .85 : .28) * (.35 + .65 * q);
+      cx.fillStyle = c === 0 ? '#04040a' : '#160d16';
+      cx.beginPath();
+      cx.moveTo(x - h * .17 + off, base);
+      cx.quadraticCurveTo(x - h * .19 + off, base - h * .45, x - h * .10 + off, base - h * .64);
+      cx.quadraticCurveTo(x - h * .07 + off, base - h * .74, x + off, base - h * .78);
+      cx.quadraticCurveTo(x + h * .07 + off, base - h * .74, x + h * .10 + off, base - h * .64);
+      cx.quadraticCurveTo(x + h * .19 + off, base - h * .45, x + h * .17 + off, base);
+      cx.closePath(); cx.fill();
+      cx.beginPath();
+      cx.arc(x + off, base - h * .86, h * .075, 0, 6.2832); cx.fill();
+    }
+    cx.globalAlpha = 1;
+    // Donde deberían ir los ojos no hay ojos: hay dos huecos más oscuros.
+    if (q > .35) {
+      cx.fillStyle = 'rgba(0,0,0,' + (.5 * q) + ')';
+      cx.beginPath(); cx.ellipse(x - h * .028, base - h * .868, h * .017, h * .026, 0, 0, 6.2832); cx.fill();
+      cx.beginPath(); cx.ellipse(x + h * .028, base - h * .868, h * .017, h * .026, 0, 0, 6.2832); cx.fill();
+    }
+    // Le come la luz alrededor.
+    cx.globalCompositeOperation = 'multiply';
+    var g = cx.createRadialGradient(x, base - h * .45, 0, x, base - h * .45, h * .55);
+    g.addColorStop(0, 'rgba(30,26,38,' + (.55 * q) + ')');
+    g.addColorStop(1, 'rgba(255,255,255,0)');
+    cx.fillStyle = g;
+    cx.beginPath(); cx.arc(x, base - h * .45, h * .55, 0, 6.2832); cx.fill();
+    cx.restore();
+  }
+
+  /* Poste de luz, para poblar el camino. */
+  function poste(u, vBase, alto) {
+    var x = X(u), base = Y(vBase), al = H * alto;
+    cx.save();
+    cx.strokeStyle = '#0a0812'; cx.lineWidth = Math.max(2, al * .022);
+    cx.beginPath(); cx.moveTo(x, base); cx.lineTo(x, base - al); cx.stroke();
+    cx.beginPath();
+    cx.moveTo(x, base - al);
+    cx.quadraticCurveTo(x + al * .10, base - al * 1.06, x + al * .16, base - al * .99);
+    cx.stroke();
+    bombita(x + al * .16, base - al * .97, Math.max(2, al * .022), '255,196,120',
+      .55 + .45 * Math.sin(t * 1.7 + x));
+    if (luces) resplandor(x + al * .16, base - al * .97, al * .5, '255,180,90', .10);
+    cx.restore();
+  }
+
+  /* Banderines triangulares colgando de un hilo. */
+  function banderines(u1, v1, u2, v2, caida) {
+    var x1 = X(u1), y1 = Y(v1), x2 = X(u2), y2 = Y(v2);
+    cx.save();
+    cx.strokeStyle = 'rgba(8,6,16,.9)'; cx.lineWidth = 1.2;
+    cx.beginPath(); cx.moveTo(x1, y1);
+    cx.quadraticCurveTo((x1 + x2) / 2, (y1 + y2) / 2 + caida, x2, y2);
+    cx.stroke();
+    var N = Math.max(6, Math.round(Math.abs(x2 - x1) / 44));
+    var cols = ['#7d2230', '#4a4a2a', '#2f3a52'];
+    for (var i = 0; i < N; i++) {
+      var u = (i + .5) / N, iu = 1 - u;
+      var x = iu * iu * x1 + 2 * iu * u * ((x1 + x2) / 2) + u * u * x2;
+      var y = iu * iu * y1 + 2 * iu * u * ((y1 + y2) / 2 + caida) + u * u * y2;
+      var ond = Math.sin(t * 1.6 + i * .8) * 3;
+      cx.fillStyle = luces ? cols[i % 3] : '#14111c';
+      cx.globalAlpha = luces ? .55 : 1;
+      cx.beginPath();
+      cx.moveTo(x - 9, y); cx.lineTo(x + 9, y);
+      cx.lineTo(x + ond, y + 17); cx.closePath(); cx.fill();
+    }
+    cx.restore();
+  }
+
+  /* Viñeta que se cierra: sube con la tensión de la escena. */
+  function vineta(fuerza) {
+    var g = cx.createRadialGradient(W / 2, H * .45, Math.min(W, H) * (.78 - .34 * fuerza),
+      W / 2, H * .45, Math.max(W, H) * .82);
+    g.addColorStop(0, 'rgba(3,4,8,0)');
+    g.addColorStop(1, 'rgba(3,4,8,' + (.45 + .45 * fuerza) + ')');
+    cx.fillStyle = g; cx.fillRect(0, 0, W, H);
+  }
+
+  /* Partículas de ceniza o polvo flotando. */
+  var motas = [];
+  function sembrarMotas(n) {
+    motas = [];
+    for (var i = 0; i < (n || 40); i++) {
+      motas.push({
+        x: Math.random(), y: Math.random(),
+        v: .004 + Math.random() * .012,
+        d: Math.random() * 6.28, r: .6 + Math.random() * 1.4
+      });
+    }
+  }
+  function polvo(alfa, tono) {
+    cx.save();
+    cx.fillStyle = 'rgba(' + (tono || '220,200,170') + ',' + (alfa || .16) + ')';
+    motas.forEach(function (m) {
+      var y = (m.y - t * m.v) % 1; if (y < 0) y += 1;
+      var x = m.x + Math.sin(t * .5 + m.d) * .012;
+      cx.beginPath(); cx.arc(X(x), Y(y), m.r, 0, 6.2832); cx.fill();
+    });
+    cx.restore();
+  }
+
+  return {
+    usar: usar, X: X, Y: Y, U: U,
+    sembrar: sembrar, sembrarMotas: sembrarMotas,
+    cielo: cielo, luna: luna,
+    bombita: bombita, resplandor: resplandor, guirnalda: guirnalda,
+    carpa: carpa, portal: portal, vueltaAlMundo: vueltaAlMundo, calesita: calesita,
+    suelo: suelo, niebla: niebla, polvo: polvo,
+    bel: bel, presencia: presencia, poste: poste, banderines: banderines,
+    cartel: cartel, carteliPie: carteliPie,
+    vineta: vineta
+  };
+})();
+
+/* ===== js/bel.js ===== */
+/* Bel: el personaje, dibujado y animado con código.
+
+   Proporciones de figurín: la cabeza entra unas siete veces y media en el alto,
+   y las piernas se llevan más de la mitad. Eso es lo que estiliza una silueta;
+   con cabeza grande y piernas cortas queda infantil por más que se afinen las
+   líneas.
+
+   La caminata va lenta a propósito: paso largo, cadencia baja, cadera que
+   bascula y brazos sueltos. Un ciclo rápido se lee como trotecito. */
+var Bel = (function () {
+  'use strict';
+
+  var PIEL = '#e3b58c';
+  var PIEL_SOMBRA = '#c08f65';
+  var PELO = '#241a20';
+  var PELO_LUZ = '#463039';
+  var ABRIGO = '#4a3250';
+  var ABRIGO_LUZ = '#654472';
+  var ABRIGO_OSCURO = '#2c1e35';
+  var PANTALON = '#241d2e';
+  var BOTA = '#181220';
+  var BUFANDA = '#c0303f';
+  var BUFANDA_OSCURA = '#8e2029';
+  var LABIO = '#b8323f';
+
+  function crear(x, y) {
+    return {
+      x: x, y: y,
+      vx: 0,
+      mirando: 1,
+      paso: 0,
+      quieto: 0,
+      alto: 176,
+      pose: 'camina'
+    };
+  }
+
+  /* Cadencia baja: a velocidad de paseo el ciclo tarda cerca de un segundo y
+     medio, que es lo que hace que se vea suelta y no apurada. */
+  function actualizar(b, dt, andando) {
+    if (andando) {
+      b.paso += dt * Math.min(6.4, 2.4 + Math.abs(b.vx) * .017);
+      b.quieto = 0;
+    } else {
+      b.quieto += dt;
+      var resto = b.paso % Math.PI;
+      if (resto > .06 && resto < Math.PI - .06) b.paso += dt * 4.2;
+    }
+  }
+
+  /* (x, y) es donde apoya los pies, ya en coordenadas de pantalla. */
+  function dibujar(cx, b, x, y, escala, luzAmbiente) {
+    var s = (escala || 1) * (b.alto / 176);
+    var A = 176 * s;
+    var dir = b.mirando;
+    var andando = Math.abs(b.vx) > 4;
+    var f = b.paso;
+
+    var pasoA = andando ? Math.sin(f) : 0;
+    var pasoB = andando ? Math.sin(f + Math.PI) : 0;
+    // Sube y baja poco: el balanceo fuerte es de caminata deportiva.
+    var rebote = andando ? Math.abs(Math.cos(f)) * 1.7 * s : 0;
+    var respira = !andando ? Math.sin(b.quieto * 1.5) * 1.0 * s : 0;
+    // La cadera bascula al ritmo del paso; es lo que da el andar.
+    var cadereo = andando ? Math.sin(f) * A * .010 : 0;
+    var inclina = andando ? Math.sin(f) * .022 : 0;
+    var vuelo = Math.min(1, Math.abs(b.vx) / 210);
+
+    // Esqueleto estilizado: piernas largas, cintura alta y marcada.
+    var cadera = -A * .515;
+    var cintura = -A * .615;
+    var hombro = -A * .805;
+    var cuello = -A * .855;
+    var cabezaY = -A * .930;
+    var rCabeza = A * .066;
+    var faldaY = cadera + A * .105;
+
+    // Sombra fija en el piso.
+    cx.save();
+    cx.globalAlpha = .32;
+    cx.fillStyle = '#000';
+    cx.beginPath();
+    cx.ellipse(x, y + 2, A * .12 - vuelo * A * .015, A * .020, 0, 0, 6.2832);
+    cx.fill();
+    cx.restore();
+
+    cx.save();
+    cx.translate(x, y - rebote + respira);
+    cx.scale(dir, 1);
+    cx.rotate(inclina);
+
+    // ---- pierna de atrás ----
+    pierna(cx, A, cadera + cadereo, pasoB, '#1c1626', '#120d18');
+    // ---- brazo de atrás ----
+    brazo(cx, A, hombro, -pasoB, ABRIGO_OSCURO, PIEL_SOMBRA);
+    // ---- pierna de adelante ----
+    pierna(cx, A, cadera + cadereo, pasoA, PANTALON, BOTA);
+
+    // ---- abrigo ----
+    // Entallado en la cintura y acampanado abajo: marca la figura en vez de
+    // taparla como un tubo.
+    cx.fillStyle = ABRIGO;
+    cx.beginPath();
+    cx.moveTo(-A * .058, hombro + A * .008);
+    cx.quadraticCurveTo(-A * .050, cintura, -A * .046, cintura + A * .015);
+    cx.quadraticCurveTo(-A * .070, cadera, -A * .074 - vuelo * A * .070, faldaY);
+    cx.lineTo(A * .072, faldaY);
+    cx.quadraticCurveTo(A * .068, cadera, A * .045, cintura + A * .015);
+    cx.quadraticCurveTo(A * .050, cintura, A * .057, hombro + A * .008);
+    cx.closePath();
+    cx.fill();
+    // Franja de luz del lado de adelante.
+    cx.fillStyle = ABRIGO_LUZ;
+    cx.beginPath();
+    cx.moveTo(A * .057, hombro + A * .008);
+    cx.quadraticCurveTo(A * .050, cintura, A * .045, cintura + A * .015);
+    cx.quadraticCurveTo(A * .068, cadera, A * .072, faldaY);
+    cx.lineTo(A * .030, faldaY);
+    cx.quadraticCurveTo(A * .028, cadera, A * .020, cintura + A * .012);
+    cx.quadraticCurveTo(A * .026, cintura, A * .028, hombro + A * .008);
+    cx.closePath();
+    cx.fill();
+    // Cinto que marca la cintura.
+    cx.fillStyle = '#2a1c30';
+    cx.beginPath();
+    cx.moveTo(-A * .048, cintura + A * .004);
+    cx.lineTo(A * .047, cintura + A * .004);
+    cx.lineTo(A * .046, cintura + A * .022);
+    cx.lineTo(-A * .047, cintura + A * .022);
+    cx.closePath();
+    cx.fill();
+    cx.fillStyle = '#c9a24a';
+    cx.fillRect(A * .012, cintura + A * .007, A * .015, A * .013);
+
+    // ---- brazo de adelante ----
+    brazo(cx, A, hombro, -pasoA, ABRIGO_LUZ, PIEL);
+
+    // ---- bufanda ----
+    cx.fillStyle = BUFANDA;
+    cx.beginPath();
+    cx.ellipse(A * .002, cuello + A * .012, A * .046, A * .022, 0, 0, 6.2832);
+    cx.fill();
+    cx.fillStyle = BUFANDA_OSCURA;
+    cx.beginPath();
+    cx.ellipse(-A * .024, cuello + A * .014, A * .023, A * .019, 0, 0, 6.2832);
+    cx.fill();
+    var flamea = andando ? Math.sin(f * 1.1) * A * .009 : Math.sin(b.quieto * .9) * A * .003;
+    cx.fillStyle = BUFANDA;
+    cx.beginPath();
+    cx.moveTo(-A * .030, cuello + A * .002);
+    cx.quadraticCurveTo(-A * .082 - vuelo * A * .060, cuello + A * .040 + flamea,
+                        -A * .072 - vuelo * A * .070, cuello + A * .110 + flamea);
+    cx.lineTo(-A * .038, cuello + A * .094);
+    cx.quadraticCurveTo(-A * .048, cuello + A * .048, -A * .008, cuello + A * .030);
+    cx.closePath();
+    cx.fill();
+
+    // ---- cabeza ----
+    // Melena larga por detrás, con su propio retraso al caminar.
+    var melena = andando ? Math.sin(f + .9) * A * .008 : Math.sin(b.quieto * 1.2) * A * .003;
+    cx.fillStyle = PELO;
+    cx.beginPath();
+    cx.moveTo(-rCabeza * .25, cabezaY - rCabeza * .85);
+    // Borde de atrás: baja casi recto hasta media espalda.
+    cx.quadraticCurveTo(-rCabeza * 1.34, cabezaY - rCabeza * .10, -rCabeza * 1.22, cuello + A * .055);
+    cx.quadraticCurveTo(-rCabeza * 1.16 + melena, cuello + A * .155,
+                        -rCabeza * .96 + melena, cuello + A * .205);
+    // Puntas.
+    cx.quadraticCurveTo(-rCabeza * .60 + melena, cuello + A * .215,
+                        -rCabeza * .46 + melena, cuello + A * .175);
+    // Borde de adelante: vuelve pegado al cuello.
+    cx.quadraticCurveTo(-rCabeza * .40, cuello + A * .080, -rCabeza * .40, cuello - A * .005);
+    cx.quadraticCurveTo(-rCabeza * .46, cabezaY + rCabeza * .55, -rCabeza * .22, cabezaY);
+    cx.closePath();
+    cx.fill();
+    // Mechón que cae por delante del hombro: es lo que hace que se lea lacio.
+    cx.beginPath();
+    cx.moveTo(rCabeza * .26, cabezaY + rCabeza * .26);
+    cx.quadraticCurveTo(rCabeza * .58, cabezaY + rCabeza * 1.00, rCabeza * .44, cuello + A * .092);
+    cx.quadraticCurveTo(rCabeza * .38 + melena * .5, cuello + A * .150,
+                        rCabeza * .14 + melena * .5, cuello + A * .132);
+    cx.quadraticCurveTo(rCabeza * .08, cuello + A * .052, -rCabeza * .04, cabezaY + rCabeza * .56);
+    cx.closePath();
+    cx.fill();
+    // Brillo largo, siguiendo la caída.
+    cx.save();
+    cx.globalAlpha = .35;
+    cx.fillStyle = PELO_LUZ;
+    cx.beginPath();
+    cx.ellipse(-rCabeza * .74, cuello + A * .020, rCabeza * .10, A * .062, .06, 0, 6.2832);
+    cx.fill();
+    cx.restore();
+
+    // Cara: óvalo alargado con mentón, no un círculo.
+    cx.fillStyle = PIEL;
+    cx.beginPath();
+    cx.moveTo(-rCabeza * .08, cabezaY - rCabeza * 1.06);
+    cx.quadraticCurveTo(rCabeza * .62, cabezaY - rCabeza * 1.00, rCabeza * .70, cabezaY - rCabeza * .24);
+    // Nariz: apenas un quiebre del perfil. A este tamaño cualquier bulto se
+    // lee como pico, así que va casi al ras.
+    cx.quadraticCurveTo(rCabeza * .70, cabezaY - rCabeza * .08, rCabeza * .665, cabezaY + rCabeza * .04);
+    cx.quadraticCurveTo(rCabeza * .645, cabezaY + rCabeza * .13, rCabeza * .585, cabezaY + rCabeza * .18);
+    // Labio y mentón afinado.
+    cx.quadraticCurveTo(rCabeza * .70, cabezaY + rCabeza * .38, rCabeza * .48, cabezaY + rCabeza * .62);
+    cx.quadraticCurveTo(rCabeza * .26, cabezaY + rCabeza * .92, -rCabeza * .16, cabezaY + rCabeza * .88);
+    cx.quadraticCurveTo(-rCabeza * .74, cabezaY + rCabeza * .70, -rCabeza * .80, cabezaY - rCabeza * .10);
+    cx.quadraticCurveTo(-rCabeza * .84, cabezaY - rCabeza * .82, -rCabeza * .08, cabezaY - rCabeza * 1.06);
+    cx.closePath();
+    cx.fill();
+    // Sombra suave del lado de atrás, sin borde duro.
+    var sg = cx.createLinearGradient(-rCabeza, cabezaY, rCabeza * .2, cabezaY);
+    sg.addColorStop(0, PIEL_SOMBRA);
+    sg.addColorStop(1, 'rgba(227,181,140,0)');
+    cx.fillStyle = sg;
+    cx.beginPath();
+    cx.ellipse(-rCabeza * .30, cabezaY + rCabeza * .10, rCabeza * .52, rCabeza * .90, 0, 0, 6.2832);
+    cx.fill();
+
+    // Pelo. El largo de adelante es lo que enmarca: dos caídas a los costados
+    // de la cara que llegan al pecho, no un casco con volumen arriba.
+    dibujarPelo(cx, null, rCabeza, cabezaY, cuello, A, melena);
+
+    // Ceja, ojo con pestaña, y labios.
+    var reloj = b.quieto + b.paso * .35;
+    var parpadeo = (Math.sin(reloj * .55) > .992) ? .14 : 1;
+    cx.strokeStyle = '#3a2830';
+    cx.lineWidth = Math.max(.8, rCabeza * .075);
+    cx.lineCap = 'round';
+    cx.beginPath();
+    // Arco suave y alto: una ceja baja e inclinada lee como enojo.
+    cx.moveTo(rCabeza * .20, cabezaY - rCabeza * .18);
+    cx.quadraticCurveTo(rCabeza * .38, cabezaY - rCabeza * .30, rCabeza * .55, cabezaY - rCabeza * .16);
+    cx.stroke();
+    if (parpadeo > .5) {
+      // Blanco, iris y brillo: así se lee un ojo abierto y con mirada.
+      cx.fillStyle = '#f2e6dc';
+      cx.beginPath();
+      cx.ellipse(rCabeza * .38, cabezaY + rCabeza * .06, rCabeza * .125, rCabeza * .098, 0, 0, 6.2832);
+      cx.fill();
+      cx.fillStyle = '#3b2418';
+      cx.beginPath();
+      cx.ellipse(rCabeza * .42, cabezaY + rCabeza * .07, rCabeza * .074, rCabeza * .086, 0, 0, 6.2832);
+      cx.fill();
+      cx.fillStyle = '#140c10';
+      cx.beginPath();
+      cx.ellipse(rCabeza * .43, cabezaY + rCabeza * .07, rCabeza * .040, rCabeza * .048, 0, 0, 6.2832);
+      cx.fill();
+      cx.fillStyle = 'rgba(255,255,255,.85)';
+      cx.beginPath();
+      cx.ellipse(rCabeza * .46, cabezaY + rCabeza * .01, rCabeza * .024, rCabeza * .020, 0, 0, 6.2832);
+      cx.fill();
+    } else {
+      // Cerrado: una línea curva, nada más.
+      cx.strokeStyle = '#241820';
+      cx.lineWidth = Math.max(.8, rCabeza * .055);
+      cx.lineCap = 'round';
+      cx.beginPath();
+      cx.moveTo(rCabeza * .26, cabezaY + rCabeza * .05);
+      cx.quadraticCurveTo(rCabeza * .41, cabezaY + rCabeza * .14, rCabeza * .52, cabezaY + rCabeza * .06);
+      cx.stroke();
+    }
+    if (parpadeo > .5) {
+      cx.strokeStyle = '#241820';
+      cx.lineWidth = Math.max(.8, rCabeza * .050);
+      cx.lineCap = 'round';
+      cx.beginPath();
+      cx.moveTo(rCabeza * .25, cabezaY - rCabeza * .055);
+      cx.quadraticCurveTo(rCabeza * .41, cabezaY - rCabeza * .125, rCabeza * .52, cabezaY - rCabeza * .02);
+      cx.stroke();
+    }
+    // Labios.
+    cx.fillStyle = LABIO;
+    cx.beginPath();
+    cx.ellipse(rCabeza * .46, cabezaY + rCabeza * .44, rCabeza * .130, rCabeza * .068, -.16, 0, 6.2832);
+    cx.fill();
+    // Comisura levantada: alcanza para que no se vea seria.
+    cx.strokeStyle = LABIO;
+    cx.lineWidth = Math.max(.7, rCabeza * .045);
+    cx.lineCap = 'round';
+    cx.beginPath();
+    cx.moveTo(rCabeza * .34, cabezaY + rCabeza * .47);
+    cx.quadraticCurveTo(rCabeza * .28, cabezaY + rCabeza * .43, rCabeza * .26, cabezaY + rCabeza * .37);
+    cx.stroke();
+    // Aro: chico, a la altura de la oreja, apenas asomando bajo el pelo.
+    cx.strokeStyle = '#c9a24a';
+    cx.lineWidth = Math.max(.7, rCabeza * .055);
+    cx.beginPath();
+    cx.arc(-rCabeza * .06, cabezaY + rCabeza * .26, rCabeza * .105, -.4, 3.4);
+    cx.stroke();
+
+    cx.restore();
+
+    // Contraluz de la feria.
+    if (luzAmbiente !== false) {
+      cx.save();
+      cx.globalCompositeOperation = 'lighter';
+      cx.translate(x, y - rebote + respira);
+      cx.scale(dir, 1);
+      cx.rotate(inclina);
+      cx.strokeStyle = 'rgba(255,198,124,.24)';
+      cx.lineWidth = Math.max(1, 1.6 * s);
+      cx.beginPath();
+      cx.moveTo(A * .057, hombro + A * .008);
+      cx.quadraticCurveTo(A * .050, cintura, A * .045, cintura + A * .015);
+      cx.quadraticCurveTo(A * .068, cadera, A * .072, faldaY);
+      cx.stroke();
+      cx.beginPath();
+      cx.moveTo(rCabeza * .70, cabezaY - rCabeza * .24);
+      cx.quadraticCurveTo(rCabeza * .74, cabezaY + rCabeza * .30, rCabeza * .48, cabezaY + rCabeza * .62);
+      cx.stroke();
+      cx.restore();
+    }
+  }
+
+  /* El pelo.
+
+     Las "caídas" largas a los dos lados terminaron tapándole la cara entera,
+     así que se volvió a esta construcción: volumen sobre el cráneo, un mechón
+     ancho que baja por delante de la oreja, y la melena que ya se dibujó por
+     detrás. La cara queda enmarcada pero visible. */
+  function dibujarPelo(cx, estilo, r, cabezaY, cuello, A, melena) {
+    cx.fillStyle = PELO;
+
+    // Casquete: exterior bien alto, interior bien adentro. La distancia entre
+    // los dos bordes es el espesor, y es lo que hace que no se vea una capa fina.
+    cx.beginPath();
+    cx.moveTo(-r * 1.06, cabezaY + r * .34);
+    cx.quadraticCurveTo(-r * 1.30, cabezaY - r * .92, -r * .12, cabezaY - r * 1.46);
+    cx.quadraticCurveTo(r * .88, cabezaY - r * 1.28, r * .92, cabezaY - r * .34);
+    cx.quadraticCurveTo(r * 1.00, cabezaY + r * .14, r * .62, cabezaY + r * .02);
+    cx.quadraticCurveTo(r * .54, cabezaY - r * .40, r * .04, cabezaY - r * .50);
+    cx.quadraticCurveTo(-r * .44, cabezaY - r * .58, -r * .62, cabezaY - r * .10);
+    cx.quadraticCurveTo(-r * .78, cabezaY + r * .14, -r * 1.06, cabezaY + r * .34);
+    cx.closePath();
+    cx.fill();
+
+    // Mechón que baja por delante de la oreja hasta pasada la mandíbula.
+    cx.beginPath();
+    cx.moveTo(-r * .34, cabezaY - r * .90);
+    cx.quadraticCurveTo(-r * 1.16, cabezaY - r * .34, -r * .96, cabezaY + r * .46);
+    cx.quadraticCurveTo(-r * .80, cabezaY + r * 1.02, -r * .26, cabezaY + r * 1.06);
+    cx.quadraticCurveTo(-r * .44, cabezaY + r * .54, -r * .42, cabezaY + r * .04);
+    cx.quadraticCurveTo(-r * .40, cabezaY - r * .48, -r * .14, cabezaY - r * .74);
+    cx.closePath();
+    cx.fill();
+
+    // Brillo sobre el casquete.
+    cx.save();
+    cx.globalAlpha = .5;
+    cx.fillStyle = PELO_LUZ;
+    cx.beginPath();
+    cx.ellipse(-r * .02, cabezaY - r * 1.10, r * .50, r * .12, -.12, 0, 6.2832);
+    cx.fill();
+    cx.restore();
+  }
+
+  /* Piernas largas, con el paso amplio y la rodilla apenas marcada. */
+  function pierna(cx, A, cadera, fase, colorPierna, colorBota) {
+    var largo = -cadera;                    // llega justo al piso
+    var ang = fase * .40;                   // paso largo, no rápido
+    var rodillaX = Math.sin(ang) * largo * .50;
+    var rodillaY = cadera + Math.cos(ang * .82) * largo * .52;
+    var alza = Math.max(0, Math.sin(fase)) * A * .022;
+    var pieX = Math.sin(ang * 1.10) * largo;
+    var pieY = cadera + Math.cos(ang * 1.10) * largo - alza;
+
+    cx.strokeStyle = colorPierna;
+    cx.lineWidth = A * .034;                // más finas que antes
+    cx.lineCap = 'round';
+    cx.lineJoin = 'round';
+    cx.beginPath();
+    cx.moveTo(0, cadera);
+    cx.lineTo(rodillaX, rodillaY);
+    cx.lineTo(pieX, pieY);
+    cx.stroke();
+
+    // Bota de caña, con un poco de taco.
+    cx.fillStyle = colorBota;
+    cx.save();
+    cx.translate(pieX, pieY);
+    cx.rotate(Math.sin(fase) * .10);
+    cx.fillRect(-A * .015, -A * .050, A * .030, A * .050);
+    cx.beginPath();
+    cx.ellipse(A * .012, A * .002, A * .034, A * .015, 0, 0, 6.2832);
+    cx.fill();
+    cx.restore();
+  }
+
+  /* Brazos sueltos, con amplitud corta: el braceo largo es de marcha. */
+  function brazo(cx, A, hombro, fase, colorManga, colorMano) {
+    var largo = A * .30;
+    var ang = fase * .40;
+    var codoX = Math.sin(ang) * largo * .52;
+    var codoY = hombro + Math.cos(ang * .9) * largo * .54;
+    var manoX = Math.sin(ang * 1.25) * largo * .96;
+    var manoY = hombro + Math.cos(ang * 1.05) * largo;
+
+    cx.strokeStyle = colorManga;
+    cx.lineWidth = A * .027;
+    cx.lineCap = 'round';
+    cx.lineJoin = 'round';
+    cx.beginPath();
+    cx.moveTo(0, hombro);
+    cx.lineTo(codoX, codoY);
+    cx.lineTo(manoX, manoY);
+    cx.stroke();
+
+    cx.fillStyle = colorMano;
+    cx.beginPath();
+    cx.ellipse(manoX, manoY + A * .008, A * .014, A * .019, 0, 0, 6.2832);
+    cx.fill();
+  }
+
+  /* Sentada, para cuando se sube a una atracción. */
+  function sentada(cx, x, y, escala, dir) {
+    var s = escala || 1, A = 176 * s;
+    cx.save();
+    cx.translate(x, y);
+    cx.scale(dir || 1, 1);
+
+    var cadera = -A * .05, cintura = -A * .16, hombro = -A * .32;
+    var cuello = -A * .375, cabezaY = -A * .455, rCabeza = A * .066;
+
+    cx.strokeStyle = PANTALON; cx.lineWidth = A * .034;
+    cx.lineCap = 'round'; cx.lineJoin = 'round';
+    cx.beginPath();
+    cx.moveTo(0, cadera); cx.lineTo(A * .19, cadera + A * .01); cx.lineTo(A * .21, A * .10);
+    cx.stroke();
+    cx.fillStyle = BOTA;
+    cx.beginPath(); cx.ellipse(A * .222, A * .11, A * .034, A * .015, 0, 0, 6.2832); cx.fill();
+
+    cx.fillStyle = ABRIGO;
+    cx.beginPath();
+    cx.moveTo(-A * .060, cadera);
+    cx.quadraticCurveTo(-A * .044, cintura, -A * .052, hombro);
+    cx.lineTo(A * .050, hombro);
+    cx.quadraticCurveTo(A * .042, cintura, A * .058, cadera);
+    cx.closePath(); cx.fill();
+    cx.fillStyle = ABRIGO_LUZ;
+    cx.beginPath();
+    cx.moveTo(A * .050, hombro);
+    cx.quadraticCurveTo(A * .042, cintura, A * .058, cadera);
+    cx.lineTo(A * .022, cadera);
+    cx.quadraticCurveTo(A * .016, cintura, A * .020, hombro);
+    cx.closePath(); cx.fill();
+
+    cx.strokeStyle = ABRIGO_LUZ; cx.lineWidth = A * .027;
+    cx.beginPath();
+    cx.moveTo(A * .016, hombro + A * .02); cx.lineTo(A * .128, hombro + A * .07);
+    cx.stroke();
+    cx.fillStyle = PIEL;
+    cx.beginPath(); cx.ellipse(A * .138, hombro + A * .078, A * .014, A * .019, 0, 0, 6.2832); cx.fill();
+
+    cx.fillStyle = BUFANDA;
+    cx.beginPath(); cx.ellipse(A * .002, cuello + A * .012, A * .046, A * .022, 0, 0, 6.2832); cx.fill();
+    cx.fillStyle = PELO;
+    cx.beginPath();
+    cx.moveTo(-rCabeza * .30, cabezaY - rCabeza * .70);
+    cx.quadraticCurveTo(-rCabeza * 1.60, cabezaY + rCabeza * .40, -rCabeza * 1.20, cuello + A * .06);
+    cx.quadraticCurveTo(-rCabeza * .70, cuello + A * .09, -rCabeza * .45, cuello + A * .04);
+    cx.closePath(); cx.fill();
+    cx.fillStyle = PIEL;
+    cx.beginPath();
+    cx.moveTo(-rCabeza * .08, cabezaY - rCabeza * 1.06);
+    cx.quadraticCurveTo(rCabeza * .62, cabezaY - rCabeza * 1.00, rCabeza * .70, cabezaY - rCabeza * .24);
+    cx.quadraticCurveTo(rCabeza * .70, cabezaY - rCabeza * .08, rCabeza * .665, cabezaY + rCabeza * .04);
+    cx.quadraticCurveTo(rCabeza * .645, cabezaY + rCabeza * .13, rCabeza * .585, cabezaY + rCabeza * .18);
+    cx.quadraticCurveTo(rCabeza * .70, cabezaY + rCabeza * .38, rCabeza * .48, cabezaY + rCabeza * .62);
+    cx.quadraticCurveTo(rCabeza * .26, cabezaY + rCabeza * .92, -rCabeza * .16, cabezaY + rCabeza * .88);
+    cx.quadraticCurveTo(-rCabeza * .74, cabezaY + rCabeza * .70, -rCabeza * .80, cabezaY - rCabeza * .10);
+    cx.quadraticCurveTo(-rCabeza * .84, cabezaY - rCabeza * .82, -rCabeza * .08, cabezaY - rCabeza * 1.06);
+    cx.closePath(); cx.fill();
+    cx.fillStyle = PELO;
+    cx.beginPath();
+    cx.moveTo(-rCabeza * .84, cabezaY + rCabeza * .18);
+    cx.quadraticCurveTo(-rCabeza * 1.02, cabezaY - rCabeza * .86, -rCabeza * .10, cabezaY - rCabeza * 1.16);
+    cx.quadraticCurveTo(rCabeza * .70, cabezaY - rCabeza * 1.02, rCabeza * .74, cabezaY - rCabeza * .36);
+    cx.quadraticCurveTo(rCabeza * .82, cabezaY - rCabeza * .16, rCabeza * .60, cabezaY - rCabeza * .20);
+    cx.quadraticCurveTo(rCabeza * .58, cabezaY - rCabeza * .74, rCabeza * .12, cabezaY - rCabeza * .80);
+    cx.quadraticCurveTo(-rCabeza * .42, cabezaY - rCabeza * .84, -rCabeza * .62, cabezaY - rCabeza * .26);
+    cx.closePath(); cx.fill();
+    cx.fillStyle = '#f2e6dc';
+    cx.beginPath();
+    cx.ellipse(rCabeza * .37, cabezaY - rCabeza * .04, rCabeza * .135, rCabeza * .105, 0, 0, 6.2832); cx.fill();
+    cx.fillStyle = '#140c10';
+    cx.beginPath();
+    cx.ellipse(rCabeza * .43, cabezaY - rCabeza * .03, rCabeza * .055, rCabeza * .065, 0, 0, 6.2832); cx.fill();
+    cx.fillStyle = LABIO;
+    cx.beginPath();
+    cx.ellipse(rCabeza * .50, cabezaY + rCabeza * .36, rCabeza * .13, rCabeza * .075, -.30, 0, 6.2832); cx.fill();
+    cx.restore();
+  }
+
+  return {
+    crear: crear, actualizar: actualizar, dibujar: dibujar, sentada: sentada,
+    PIEL: PIEL, ABRIGO: ABRIGO, BUFANDA: BUFANDA
+  };
+})();
+
+/* ===== js/cielo.js ===== */
+/* Lo que pasa en el cielo mientras Bel camina.
+
+   Es fondo, no espectáculo: aparece cada tanto, tarda en cruzar, y si la
+   jugadora estaba mirando el piso se lo pierde. Esa es la idea — que quien
+   mire arriba sea recompensada, no que la escena le grite.
+
+   Nunca hay dos cosas a la vez, y entre una y otra pasan como mínimo veinte
+   segundos. */
+var Cielo = (function () {
+  'use strict';
+
+  var TIPOS = ['fugaz', 'viajera', 'formacion', 'pulso', 'sombra', 'satelite'];
+
+  function crear() {
+    return {
+      evento: null,
+      // La primera aparición llega temprano, para que se note que esto existe.
+      espera: 6 + Math.random() * 8,
+      vistos: {}
+    };
+  }
+
+  /* Elige el próximo evento. Las más llamativas salen menos seguido. */
+  function elegir(c) {
+    var r = Math.random();
+    var tipo;
+    if (r < .30) tipo = 'fugaz';
+    else if (r < .52) tipo = 'satelite';
+    else if (r < .70) tipo = 'viajera';
+    else if (r < .84) tipo = 'pulso';
+    else if (r < .95) tipo = 'formacion';
+    else tipo = 'sombra';
+
+    var haciaLaDerecha = Math.random() < .5;
+    c.evento = {
+      tipo: tipo,
+      t: 0,
+      dur: tipo === 'fugaz' ? 1.1
+         : tipo === 'satelite' ? 14
+         : tipo === 'viajera' ? 9
+         : tipo === 'pulso' ? 4.5
+         : tipo === 'formacion' ? 8
+         : 11,                                   // sombra
+      dir: haciaLaDerecha ? 1 : -1,
+      x0: haciaLaDerecha ? -.12 : 1.12,
+      y0: .06 + Math.random() * .30,
+      inclina: (Math.random() - .5) * .16,
+      semilla: Math.random() * 6.28
+    };
+    c.vistos[tipo] = (c.vistos[tipo] || 0) + 1;
+  }
+
+  function actualizar(c, dt) {
+    if (c.evento) {
+      c.evento.t += dt;
+      if (c.evento.t >= c.evento.dur) {
+        c.evento = null;
+        c.espera = 20 + Math.random() * 34;
+      }
+      return;
+    }
+    c.espera -= dt;
+    if (c.espera <= 0) elegir(c);
+  }
+
+  /* Curva de aparición y desvanecimiento: entra y sale sin cortes. */
+  function sobre(u, subida, bajada) {
+    if (u < subida) return u / subida;
+    if (u > 1 - bajada) return (1 - u) / bajada;
+    return 1;
+  }
+
+  function punto(cx, x, y, r, col, alfa) {
+    cx.save();
+    cx.globalCompositeOperation = 'lighter';
+    var g = cx.createRadialGradient(x, y, 0, x, y, r * 7);
+    g.addColorStop(0, 'rgba(' + col + ',' + (alfa * .5) + ')');
+    g.addColorStop(.4, 'rgba(' + col + ',' + (alfa * .14) + ')');
+    g.addColorStop(1, 'rgba(' + col + ',0)');
+    cx.fillStyle = g;
+    cx.beginPath(); cx.arc(x, y, r * 7, 0, 6.2832); cx.fill();
+    cx.fillStyle = 'rgba(255,252,244,' + alfa + ')';
+    cx.beginPath(); cx.arc(x, y, r, 0, 6.2832); cx.fill();
+    cx.restore();
+  }
+
+  function dibujar(cx, c, W, H, t) {
+    var e = c.evento;
+    if (!e) return;
+    var u = e.t / e.dur;
+
+    if (e.tipo === 'fugaz') {
+      // Rápida, con estela. Dura poco más de un segundo.
+      var a = sobre(u, .12, .40);
+      var fx = W * (e.x0 + e.dir * u * 1.24);
+      var fy = H * (e.y0 + u * .16);
+      var largo = W * .085;
+      cx.save();
+      cx.globalCompositeOperation = 'lighter';
+      var g = cx.createLinearGradient(fx, fy, fx - e.dir * largo, fy - H * .022);
+      g.addColorStop(0, 'rgba(255,250,235,' + (.75 * a) + ')');
+      g.addColorStop(1, 'rgba(255,250,235,0)');
+      cx.strokeStyle = g;
+      cx.lineWidth = 2.2;
+      cx.lineCap = 'round';
+      cx.beginPath();
+      cx.moveTo(fx, fy);
+      cx.lineTo(fx - e.dir * largo, fy - H * .022);
+      cx.stroke();
+      cx.restore();
+      punto(cx, fx, fy, 1.6, '255,250,235', .85 * a);
+
+    } else if (e.tipo === 'satelite') {
+      // Un puntito parejo que cruza despacio, como un satélite de verdad.
+      var a2 = sobre(u, .10, .18);
+      var sx = W * (e.x0 + e.dir * u * 1.24);
+      var sy = H * (e.y0 + u * e.inclina);
+      punto(cx, sx, sy, 1.3, '226,232,255', .55 * a2);
+
+    } else if (e.tipo === 'viajera') {
+      // Una luz sola que cruza, cambia de color y se apaga de golpe.
+      var a3 = sobre(u, .14, .10);
+      var vx = W * (e.x0 + e.dir * u * 1.24);
+      var vy = H * (e.y0 + Math.sin(u * 3.1 + e.semilla) * .035);
+      var col = u < .5 ? '255,214,150' : '170,225,255';
+      // Se apaga y se enciende, sin ritmo fijo.
+      var late = .55 + .45 * Math.sin(e.t * 3.2 + e.semilla);
+      punto(cx, vx, vy, 2.0, col, .70 * a3 * late);
+
+    } else if (e.tipo === 'formacion') {
+      // Tres luces que se mueven juntas, guardando la distancia.
+      var a4 = sobre(u, .16, .16);
+      var bx = W * (e.x0 + e.dir * u * 1.20);
+      var by = H * (e.y0 + Math.sin(u * 2.4 + e.semilla) * .02);
+      var sep = W * .028;
+      var giro = e.t * .25 + e.semilla;
+      for (var i = 0; i < 3; i++) {
+        var ang = giro + i * 2.094;
+        punto(cx,
+          bx + Math.cos(ang) * sep * e.dir,
+          by + Math.sin(ang) * sep * .38,
+          1.7, '200,235,255', .58 * a4);
+      }
+
+    } else if (e.tipo === 'pulso') {
+      // Un resplandor que crece y se va, sin nada adentro.
+      var a5 = sobre(u, .30, .45);
+      var px = W * (.20 + e.semilla * .09);
+      var py = H * e.y0;
+      var r = H * (.02 + u * .10);
+      cx.save();
+      cx.globalCompositeOperation = 'lighter';
+      var pg = cx.createRadialGradient(px, py, 0, px, py, r);
+      pg.addColorStop(0, 'rgba(190,225,255,' + (.16 * a5) + ')');
+      pg.addColorStop(.5, 'rgba(160,200,255,' + (.05 * a5) + ')');
+      pg.addColorStop(1, 'rgba(160,200,255,0)');
+      cx.fillStyle = pg;
+      cx.beginPath(); cx.arc(px, py, r, 0, 6.2832); cx.fill();
+      cx.restore();
+
+    } else if (e.tipo === 'sombra') {
+      // Algo oscuro que pasa por delante de las estrellas y las tapa. No se ve:
+      // se nota porque falta cielo.
+      var a6 = sobre(u, .22, .22);
+      var ox = W * (e.x0 + e.dir * u * 1.24);
+      var oy = H * e.y0;
+      var an = W * .14, al = H * .045;
+      cx.save();
+      cx.globalAlpha = .82 * a6;
+      cx.fillStyle = '#080b14';
+      cx.beginPath();
+      cx.ellipse(ox, oy, an, al, e.inclina, 0, 6.2832);
+      cx.fill();
+      // Un borde apenas más claro, para que no sea un agujero plano.
+      cx.globalAlpha = .10 * a6;
+      cx.strokeStyle = '#3d4a68';
+      cx.lineWidth = 1.5;
+      cx.stroke();
+      cx.restore();
+    }
+  }
+
+  /* Para el debug: forzar un evento concreto. */
+  function forzar(c, tipo) {
+    elegir(c);
+    c.evento.tipo = tipo;
+    c.evento.t = 0;
+    c.evento.dur = tipo === 'fugaz' ? 1.1
+      : tipo === 'satelite' ? 14
+      : tipo === 'viajera' ? 9
+      : tipo === 'pulso' ? 4.5
+      : tipo === 'formacion' ? 8 : 11;
+  }
+
+  return { crear: crear, actualizar: actualizar, dibujar: dibujar, forzar: forzar, TIPOS: TIPOS };
+})();
+
+/* ===== js/mundo.js ===== */
+/* El mundo: la feria como un escenario continuo que Bel recorre caminando.
+   Las coordenadas del mundo van en píxeles; la cámara traduce a pantalla.
+   El suelo está siempre en la misma línea, así que solo hay una dimensión de
+   movimiento y las atracciones se ubican por su x. */
+var Mundo = (function () {
+  'use strict';
+
+  var D = Dib;
+
+  var ANCHO = 8200;          // largo total de la feria
+  var SUELO = 0.83;          // altura del piso, en fracción de pantalla
+  var VELOCIDAD = 205;       // px por segundo caminando
+
+  /* Las paradas de la feria, de izquierda a derecha.
+     radio: a qué distancia se puede interactuar. */
+  /* accion: qué dice el prompt. mirar: lo que Bel observa al acercarse.
+     Las que tienen secuencia propia la arrancan; el resto responde igual, con
+     una observación. E nunca tiene que quedar sin hacer nada. */
+  var PARADAS = [
+    { clave: 'entrada', x: 240, radio: 150, titulo: 'La entrada', accion: 'mirar el molinete',
+      mirar: 'El molinete gira para los dos lados. Los de feria giran para un lado solo, ' +
+             'para que nadie entre sin pagar. Este deja pasar en las dos direcciones.' },
+    { clave: 'tiro', x: 1080, radio: 170, titulo: 'El puesto de tiro', accion: 'mirar el mostrador',
+      mirar: 'Los patos siguen dando la vuelta y las luces están todas sanas. ' +
+             'Sobre el mostrador hay dos rifles apoyados, con el caño para adentro. ' +
+             'Así los deja alguien que piensa volver.' },
+    { clave: 'calesita', x: 2000, radio: 200, titulo: 'La calesita', accion: 'escuchar la música',
+      mirar: 'Gira despacio, a la velocidad exacta de los chicos chiquitos. ' +
+             'Esa velocidad no viene de fábrica: alguien la reguló así, a mano.' },
+    { clave: 'montania', x: 3150, radio: 230, titulo: 'La montaña rusa', accion: 'subirte' },
+    { clave: 'chocadores', x: 4300, radio: 200, titulo: 'Los autitos', accion: 'mirar la pista',
+      mirar: 'Hay uno andando solo, dando vueltas. Bel busca el tablero y lo encuentra ' +
+             'al costado, con la llave abajo. La pista está sin corriente.' },
+    { clave: 'espejos', x: 5250, radio: 180, titulo: 'El laberinto de espejos', accion: 'contar los paneles',
+      mirar: 'Se ve nueve veces caminando por el frente. Cuenta los paneles despacio, ' +
+             'señalando con el dedo: son ocho.' },
+    { clave: 'martillo', x: 6000, radio: 140, titulo: 'El martillo', accion: 'mirar la campana',
+      mirar: 'La campana está gastada arriba, del lado de adentro. Para dejarla así ' +
+             'hay que pegarle muchísimas veces. Y la maza está apoyada, no tirada.' },
+    { clave: 'rueda', x: 6850, radio: 230, titulo: 'La vuelta al mundo', accion: 'buscar el motor',
+      mirar: 'Rodea la estructura entera. Donde tendría que estar el motor hay un hueco ' +
+             'limpio, con la marca en el cemento de cuando estuvo. La rueda sigue girando.' },
+    { clave: 'carpa', x: 7800, radio: 170, titulo: 'La carpa del fondo', accion: 'asomarte',
+      mirar: 'Es la única sin luces afuera. Abajo de la lona se ve una claridad quieta, ' +
+             'de vela. Bel no entra todavía: sabe que a esa carpa se entra al final.' }
+  ];
+
+  function crear() {
+    return {
+      camara: 0,
+      ancho: ANCHO,
+      paradas: PARADAS,
+      // Postes de luz repartidos, para que el camino tenga ritmo.
+      postes: (function () {
+        var p = [];
+        for (var x = 480; x < ANCHO; x += 620) p.push({ x: x, semilla: x * .013 });
+        return p;
+      })(),
+      // Cositas del piso: cajones, un tacho, papeles.
+      trastos: (function () {
+        var t = [], tipos = ['cajon', 'tacho', 'caballete', 'bolsa'];
+        for (var i = 0; i < 26; i++) {
+          var x = 380 + i * 300 + ((i * 137) % 190);
+          t.push({ x: x, tipo: tipos[i % tipos.length], esc: .8 + ((i * 53) % 40) / 100 });
+        }
+        return t;
+      })()
+    };
+  }
+
+  /* La cámara sigue a Bel, pero no se sale del mundo y llega con retraso:
+     un seguimiento rígido marea. */
+  function seguirCamara(m, belX, W, dt) {
+    var objetivo = belX - W * .40;
+    var max = ANCHO - W;
+    if (objetivo < 0) objetivo = 0;
+    if (objetivo > max) objetivo = max;
+    var k = 1 - Math.pow(0.0025, dt);       // suavizado independiente de los fps
+    m.camara += (objetivo - m.camara) * k;
+  }
+
+  function paradaCerca(m, belX) {
+    for (var i = 0; i < PARADAS.length; i++) {
+      if (Math.abs(belX - PARADAS[i].x) < PARADAS[i].radio) return PARADAS[i];
+    }
+    return null;
+  }
+
+  /* --- fondo --- */
+
+  // Tres capas de siluetas lejanas que se mueven a distinta velocidad.
+  function fondo(cx, m, W, H, t, luna) {
+    // Se pinta bien por fuera de la pantalla: durante las secuencias la cámara
+    // sube, y un rectángulo del alto justo dejaba franjas negras.
+    var g = cx.createLinearGradient(0, -H, 0, H);
+    g.addColorStop(0, '#060811');
+    g.addColorStop(.28, '#0a0e1a');
+    g.addColorStop(.60, '#121a2e');
+    g.addColorStop(.86, '#1d2340');
+    g.addColorStop(1, '#0f1220');
+    cx.fillStyle = g;
+    cx.fillRect(-W, -H * 1.6, W * 3, H * 3.2);
+
+    D.usar(cx, W, H, t, true);
+    // Estrellas y luna quedan fijas: están lejísimos.
+    cx.save();
+    for (var i = 0; i < estrellas.length; i++) {
+      var e = estrellas[i];
+      cx.globalAlpha = .18 + .45 * (0.5 + 0.5 * Math.sin(t * e.v + e.f));
+      cx.fillStyle = '#cfd6ee';
+      cx.beginPath(); cx.arc(e.x * W, e.y * H * .62, e.r, 0, 6.2832); cx.fill();
+    }
+    cx.restore();
+    D.luna(.82, .15, .026, luna.iluminacion, luna.creciente);
+
+    // Capa 1: el paredón del baldío y los árboles del fondo.
+    var c1 = m.camara * .18;
+    cx.fillStyle = '#0d1120';
+    var yPared = H * SUELO - H * .17;
+    cx.fillRect(0, yPared, W, H * .17);
+    for (var k = 0; k < 30; k++) {
+      var ax = (k * 340 - c1) % (W + 680) - 340;
+      cx.beginPath();
+      cx.ellipse(ax, yPared - H * .012, 46, H * .052, 0, 0, 6.2832);
+      cx.fill();
+    }
+
+    // Capa 2: siluetas de carpas y mástiles, a media distancia.
+    var c2 = m.camara * .42;
+    cx.fillStyle = '#111527';
+    for (var j = 0; j < 22; j++) {
+      var bx = (j * 430 - c2) % (W + 860) - 430;
+      var alto = H * (.06 + ((j * 37) % 40) / 900);
+      cx.beginPath();
+      cx.moveTo(bx - 62, H * SUELO - H * .015);
+      cx.quadraticCurveTo(bx, H * SUELO - H * .015 - alto * 1.5, bx + 62, H * SUELO - H * .015);
+      cx.closePath(); cx.fill();
+    }
+  }
+
+  var estrellas = [];
+  function sembrar() {
+    estrellas = [];
+    for (var i = 0; i < 150; i++) {
+      estrellas.push({
+        x: Math.random(), y: Math.random(),
+        r: Math.random() * 1.1 + .3, f: Math.random() * 6.28,
+        v: .4 + Math.random() * 1.0
+      });
+    }
+  }
+
+  /* --- suelo --- */
+
+  function suelo(cx, m, W, H, t) {
+    var y = H * SUELO;
+    var g = cx.createLinearGradient(0, y - 4, 0, H);
+    g.addColorStop(0, '#1e1a2a');
+    g.addColorStop(.25, '#16121f');
+    g.addColorStop(1, '#0a0810');
+    cx.fillStyle = g;
+    cx.fillRect(-W, y - 4, W * 3, H * 1.8);
+
+    // Pedregullo: puntitos que se mueven con la cámara, para que se note el avance.
+    cx.save();
+    cx.fillStyle = 'rgba(150,140,165,.14)';
+    var paso = 26;
+    var off = -(m.camara % paso);
+    for (var fila = 0; fila < 7; fila++) {
+      var fy = y + 10 + fila * (H - y) * .12;
+      var desfase = (fila % 2) * (paso / 2);
+      for (var x = off - paso; x < W + paso; x += paso) {
+        var r = 1 + ((Math.round(x + m.camara + fila * 71) * 13) % 5) * .28;
+        cx.beginPath();
+        cx.arc(x + desfase, fy, r, 0, 6.2832);
+        cx.fill();
+      }
+    }
+    cx.restore();
+  }
+
+  /* --- trastos del piso --- */
+
+  function trastos(cx, m, W, H, t) {
+    var y = H * SUELO;
+    m.trastos.forEach(function (o) {
+      var x = o.x - m.camara;
+      if (x < -120 || x > W + 120) return;
+      var s = o.esc;
+      cx.save();
+      cx.translate(x, y);
+      cx.fillStyle = 'rgba(0,0,0,.4)';
+      cx.beginPath(); cx.ellipse(0, 3, 26 * s, 6 * s, 0, 0, 6.2832); cx.fill();
+      if (o.tipo === 'cajon') {
+        cx.fillStyle = '#1c1520';
+        cx.fillRect(-20 * s, -26 * s, 40 * s, 26 * s);
+        cx.strokeStyle = '#2b2130'; cx.lineWidth = 2;
+        cx.strokeRect(-20 * s, -26 * s, 40 * s, 26 * s);
+        cx.beginPath();
+        cx.moveTo(-20 * s, -13 * s); cx.lineTo(20 * s, -13 * s); cx.stroke();
+      } else if (o.tipo === 'tacho') {
+        cx.fillStyle = '#191420';
+        cx.beginPath();
+        cx.moveTo(-15 * s, 0); cx.lineTo(-12 * s, -34 * s);
+        cx.lineTo(12 * s, -34 * s); cx.lineTo(15 * s, 0);
+        cx.closePath(); cx.fill();
+        cx.fillStyle = '#241d2c';
+        cx.beginPath(); cx.ellipse(0, -34 * s, 12 * s, 4 * s, 0, 0, 6.2832); cx.fill();
+      } else if (o.tipo === 'caballete') {
+        cx.strokeStyle = '#1e1826'; cx.lineWidth = 3 * s;
+        cx.beginPath();
+        cx.moveTo(-18 * s, 0); cx.lineTo(-6 * s, -22 * s);
+        cx.moveTo(18 * s, 0); cx.lineTo(6 * s, -22 * s);
+        cx.moveTo(-14 * s, -22 * s); cx.lineTo(14 * s, -22 * s);
+        cx.stroke();
+      } else {
+        cx.fillStyle = '#15111c';
+        cx.beginPath();
+        cx.ellipse(0, -7 * s, 17 * s, 8 * s, .2, 0, 6.2832); cx.fill();
+      }
+      cx.restore();
+    });
+  }
+
+  /* --- postes de luz --- */
+
+  function postes(cx, m, W, H, t) {
+    var y = H * SUELO;
+    m.postes.forEach(function (p) {
+      var x = p.x - m.camara;
+      if (x < -140 || x > W + 140) return;
+      var al = H * .30;
+      cx.save();
+      cx.strokeStyle = '#0d0a14';
+      cx.lineWidth = 5;
+      cx.beginPath();
+      cx.moveTo(x, y); cx.lineTo(x, y - al); cx.stroke();
+      cx.beginPath();
+      cx.moveTo(x, y - al);
+      cx.quadraticCurveTo(x + al * .10, y - al * 1.07, x + al * .17, y - al * .99);
+      cx.stroke();
+      cx.restore();
+      var late = .62 + .38 * Math.sin(t * 1.5 + p.semilla * 9);
+      // Alguno falla, como en toda feria.
+      if (Math.sin(t * 6 + p.semilla * 21) > -.94) {
+        D.bombita(x + al * .17, y - al * .97, 3, '255,198,124', late);
+        D.resplandor(x + al * .17, y - al * .97, al * .62, '255,178,96', .10 * late);
+        // Charco de luz en el piso.
+        cx.save();
+        cx.globalCompositeOperation = 'lighter';
+        var gg = cx.createRadialGradient(x + al * .17, y + 6, 0, x + al * .17, y + 6, al * .50);
+        gg.addColorStop(0, 'rgba(255,180,96,' + (.16 * late) + ')');
+        gg.addColorStop(1, 'rgba(255,180,96,0)');
+        cx.fillStyle = gg;
+        cx.beginPath();
+        cx.ellipse(x + al * .17, y + 6, al * .50, al * .085, 0, 0, 6.2832);
+        cx.fill();
+        cx.restore();
+      }
+    });
+  }
+
+  /* Guirnaldas que cruzan de poste a poste. */
+  function guirnaldas(cx, m, W, H, t) {
+    var y = H * SUELO;
+    var al = H * .30;
+    for (var i = 0; i < m.postes.length - 1; i++) {
+      var a = m.postes[i], b = m.postes[i + 1];
+      var x1 = a.x - m.camara + al * .17, x2 = b.x - m.camara + al * .17;
+      if (x2 < -60 || x1 > W + 60) continue;
+      var y1 = y - al * .95, y2 = y - al * .95;
+      cx.save();
+      cx.strokeStyle = 'rgba(8,6,16,.85)';
+      cx.lineWidth = 1.4;
+      cx.beginPath();
+      cx.moveTo(x1, y1);
+      cx.quadraticCurveTo((x1 + x2) / 2, (y1 + y2) / 2 + 54, x2, y2);
+      cx.stroke();
+      cx.restore();
+      var N = 11;
+      for (var k = 1; k < N; k++) {
+        var u = k / N, iu = 1 - u;
+        var bx = iu * iu * x1 + 2 * iu * u * ((x1 + x2) / 2) + u * u * x2;
+        var by = iu * iu * y1 + 2 * iu * u * ((y1 + y2) / 2 + 54) + u * u * y2;
+        if (Math.sin(t * 2 + k * 1.1 + i * 3) < -.82) continue;
+        var col = (k % 3 === 0) ? '255,196,128' : (k % 3 === 1) ? '196,110,116' : '150,196,176';
+        D.bombita(bx, by, 2, col, .5 + .5 * Math.sin(t * 2.6 + k + i));
+      }
+    }
+  }
+
+  return {
+    ANCHO: ANCHO, SUELO: SUELO, VELOCIDAD: VELOCIDAD, PARADAS: PARADAS,
+    crear: crear, sembrar: sembrar, seguirCamara: seguirCamara,
+    paradaCerca: paradaCerca,
+    fondo: fondo, suelo: suelo, trastos: trastos, postes: postes,
+    guirnaldas: guirnaldas
+  };
+})();
+
+/* ===== js/atracciones.js ===== */
+/* Las atracciones dibujadas dentro del mundo.
+   Cada una recibe la x de pantalla (ya restada la cámara) y la línea del piso,
+   así se dibujan siempre a la misma escala y el recorrido se siente continuo. */
+var Atracciones = (function () {
+  'use strict';
+
+  var D = Dib;
+
+  var HIERRO = '#171325';
+  var HIERRO_LUZ = '#2a2340';
+  var LONA_A = '#3a2536';
+  var LONA_B = '#513349';
+
+  /* --- entrada: molinete y cartel --- */
+  function entrada(cx, x, piso, H, t) {
+    var an = H * .42, al = H * .46;
+    cx.save();
+    // Columnas.
+    cx.fillStyle = HIERRO;
+    cx.fillRect(x - an / 2, piso - al, an * .07, al);
+    cx.fillRect(x + an / 2 - an * .07, piso - al, an * .07, al);
+    // Arco.
+    cx.beginPath();
+    cx.moveTo(x - an / 2, piso - al);
+    cx.quadraticCurveTo(x, piso - al * 1.42, x + an / 2, piso - al);
+    cx.lineTo(x + an / 2, piso - al * .90);
+    cx.quadraticCurveTo(x, piso - al * 1.28, x - an / 2, piso - al * .90);
+    cx.closePath(); cx.fill();
+    // Bombitas del arco.
+    for (var i = 0; i <= 15; i++) {
+      var u = i / 15, iu = 1 - u;
+      var bx = iu * iu * (x - an / 2) + 2 * iu * u * x + u * u * (x + an / 2);
+      var by = iu * iu * (piso - al) + 2 * iu * u * (piso - al * 1.35) + u * u * (piso - al);
+      if (i === 6 && Math.sin(t * 7) < 0) continue;
+      D.bombita(bx, by, 2.4, '255,206,140', .55 + .45 * Math.sin(t * 2.4 + i * .7));
+    }
+    // Rótulo.
+    cx.save();
+    cx.globalCompositeOperation = 'lighter';
+    // Letras de neón sobre el arco: entran dentro del ancho del portal, con
+    // el espaciado justo. Antes se desbordaban por los dos lados.
+    var cuerpo = Math.min(al * .115, an * .155);
+    cx.font = '600 ' + Math.round(cuerpo) + "px 'Cormorant Garamond',serif";
+    cx.textAlign = 'center'; cx.textBaseline = 'middle';
+    cx.shadowColor = 'rgba(255,168,64,.9)'; cx.shadowBlur = 20;
+    cx.fillStyle = 'rgba(255,208,132,.95)';
+    cx.fillText('KERMÉS', x, piso - al * 1.13);
+    cx.restore();
+    // Molinete.
+    cx.strokeStyle = HIERRO_LUZ; cx.lineWidth = 5;
+    cx.beginPath();
+    cx.moveTo(x + an * .18, piso); cx.lineTo(x + an * .18, piso - H * .085);
+    cx.stroke();
+    var giro = Math.sin(t * .3) * .25;
+    for (var b = 0; b < 3; b++) {
+      var a = giro + b * 2.094;
+      cx.beginPath();
+      cx.moveTo(x + an * .18, piso - H * .075);
+      cx.lineTo(x + an * .18 + Math.cos(a) * H * .052, piso - H * .075 + Math.sin(a) * H * .014);
+      cx.stroke();
+    }
+    cx.restore();
+  }
+
+  /* --- puesto de tiro --- */
+  function tiro(cx, x, piso, H, t) {
+    var an = H * .46, al = H * .42;
+    var x0 = x - an / 2, x1 = x + an / 2, techo = piso - al, most = piso - al * .32;
+    cx.save();
+    cx.fillStyle = HIERRO;
+    cx.fillRect(x0, techo, an, al);
+    var g = cx.createLinearGradient(0, techo + al * .10, 0, most);
+    g.addColorStop(0, 'rgba(255,186,96,.34)');
+    g.addColorStop(1, 'rgba(150,60,60,.12)');
+    cx.fillStyle = g;
+    cx.fillRect(x0 + an * .06, techo + al * .10, an * .88, most - techo - al * .10);
+    // Patos en dos hileras.
+    for (var f = 0; f < 2; f++) {
+      var yf = techo + al * .22 + f * al * .20;
+      var dir = f === 0 ? 1 : -1;
+      cx.save();
+      cx.beginPath(); cx.rect(x0 + an * .07, techo + al * .10, an * .86, most - techo - al * .12); cx.clip();
+      var paso = an * .26;
+      for (var i = -1; i < 5; i++) {
+        var px = x0 + an * .07 + i * paso + ((t * 26 * dir) % paso + paso) % paso;
+        cx.save(); cx.translate(px, yf);
+        if (dir < 0) cx.scale(-1, 1);
+        cx.fillStyle = '#0b0810';
+        cx.beginPath(); cx.ellipse(0, 0, an * .052, an * .028, 0, 0, 6.2832); cx.fill();
+        cx.beginPath(); cx.ellipse(an * .032, -an * .034, an * .020, an * .022, 0, 0, 6.2832); cx.fill();
+        cx.beginPath();
+        cx.moveTo(an * .050, -an * .038); cx.lineTo(an * .076, -an * .030);
+        cx.lineTo(an * .050, -an * .024); cx.closePath(); cx.fill();
+        cx.restore();
+      }
+      cx.restore();
+    }
+    // Mostrador y alero.
+    cx.fillStyle = '#120e1a';
+    cx.fillRect(x0, most, an, al * .09);
+    cx.fillStyle = HIERRO;
+    cx.fillRect(x0 - an * .05, techo - al * .05, an * 1.10, al * .055);
+    for (var k = 0; k <= 9; k++)
+      D.bombita(x0 - an * .05 + an * 1.10 * k / 9, techo - al * .06, 2.3, '255,200,130',
+        .5 + .5 * Math.sin(t * 2.6 + k * .8));
+    D.resplandor(x, techo + al * .3, an * .8, '255,170,90', .10);
+    cx.restore();
+    D.cartel(x, techo - al * .22, 'TIRO AL BLANCO',
+      { ancho: H * .30, color: '#7a4030', tinta: '#ffe2bc' });
+  }
+
+  /* --- calesita --- */
+  function calesita(cx, x, piso, H, t) {
+    var an = H * .62, al = H * .46;
+    cx.save();
+    cx.fillStyle = '#0c0912';
+    cx.beginPath(); cx.ellipse(x, piso, an * .5, an * .085, 0, 0, 6.2832); cx.fill();
+    var giro = t * .34;
+    var N = 8, piezas = [];
+    for (var i = 0; i < N; i++) piezas.push({ a: giro + i * 6.2832 / N });
+    piezas.sort(function (p, q) { return Math.sin(p.a) - Math.sin(q.a); });
+    piezas.forEach(function (p) {
+      var px = x + Math.cos(p.a) * an * .40;
+      var py = piso + Math.sin(p.a) * an * .072;
+      var sube = Math.sin(t * 2.2 + p.a * 2) * al * .05;
+      cx.strokeStyle = '#1d1729'; cx.lineWidth = Math.max(1.5, an * .008);
+      cx.beginPath(); cx.moveTo(px, py); cx.lineTo(px, py - al * .68); cx.stroke();
+      var cy = py - al * .30 + sube, cw = an * .072, ch = al * .10;
+      cx.fillStyle = '#100c19';
+      cx.beginPath(); cx.ellipse(px, cy, cw, ch * .55, 0, 0, 6.2832); cx.fill();
+      cx.beginPath();
+      cx.moveTo(px + cw * .55, cy - ch * .2);
+      cx.lineTo(px + cw * 1.05, cy - ch * .95);
+      cx.lineTo(px + cw * .70, cy - ch * 1.0);
+      cx.lineTo(px + cw * .28, cy - ch * .35);
+      cx.closePath(); cx.fill();
+      cx.strokeStyle = '#100c19'; cx.lineWidth = Math.max(1.2, an * .007);
+      [-.5, -.15, .2, .55].forEach(function (o) {
+        cx.beginPath();
+        cx.moveTo(px + cw * o, cy + ch * .35);
+        cx.lineTo(px + cw * o + cw * .12, cy + ch * .95);
+        cx.stroke();
+      });
+    });
+    // Techo cónico.
+    for (var j = 0; j < 12; j++) {
+      var a0 = j / 12 * 6.2832, a1 = (j + 1) / 12 * 6.2832;
+      cx.fillStyle = (j % 2 === 0) ? LONA_B : LONA_A;
+      cx.beginPath();
+      cx.moveTo(x, piso - al * 1.06);
+      cx.lineTo(x + Math.cos(a0) * an * .52, piso - al * .72 + Math.sin(a0) * an * .09);
+      cx.lineTo(x + Math.cos(a1) * an * .52, piso - al * .72 + Math.sin(a1) * an * .09);
+      cx.closePath(); cx.fill();
+    }
+    for (var b = 0; b < 16; b++) {
+      var ab = b / 16 * 6.2832;
+      if (Math.sin(ab) < -.5) continue;
+      D.bombita(x + Math.cos(ab) * an * .52, piso - al * .72 + Math.sin(ab) * an * .09,
+        2.1, '255,204,140', .5 + .5 * Math.sin(t * 3 + b));
+    }
+    D.resplandor(x, piso - al * .45, an * .75, '255,190,110', .11);
+    cx.restore();
+    D.carteliPie(x - an * .62, piso, 'CALESITA',
+      { ancho: H * .17, color: '#8a5a2e', tinta: '#ffe8c0' });
+  }
+
+  /* --- montaña rusa: la estructura de madera y el circuito --- */
+  function montania(cx, x, piso, H, t) {
+    var an = H * 2.10, al = H * .66;
+    cx.save();
+    // Perfil del circuito: subida larga, caída, dos lomas.
+    var pts = perfilMontania(x, piso, an, al);
+    // Columnas de sostén.
+    cx.strokeStyle = HIERRO; cx.lineWidth = 4;
+    for (var i = 0; i < pts.length; i += 3) {
+      cx.beginPath();
+      cx.moveTo(pts[i].x, pts[i].y);
+      cx.lineTo(pts[i].x, piso);
+      cx.stroke();
+      // Cruces de arriostre.
+      if (i + 3 < pts.length) {
+        cx.beginPath();
+        cx.moveTo(pts[i].x, pts[i].y); cx.lineTo(pts[i + 3].x, piso);
+        cx.moveTo(pts[i + 3].x, pts[i + 3].y); cx.lineTo(pts[i].x, piso);
+        cx.stroke();
+      }
+    }
+    // Vía.
+    cx.strokeStyle = '#241c30'; cx.lineWidth = 7;
+    cx.beginPath();
+    cx.moveTo(pts[0].x, pts[0].y);
+    for (var k = 1; k < pts.length; k++) cx.lineTo(pts[k].x, pts[k].y);
+    cx.stroke();
+    cx.strokeStyle = '#3a2f4a'; cx.lineWidth = 2.5;
+    cx.beginPath();
+    cx.moveTo(pts[0].x, pts[0].y - 6);
+    for (var k2 = 1; k2 < pts.length; k2++) cx.lineTo(pts[k2].x, pts[k2].y - 6);
+    cx.stroke();
+    // Luces sobre la estructura.
+    for (var b = 0; b < pts.length; b += 4) {
+      if (Math.sin(t * 2 + b) < -.6) continue;
+      D.bombita(pts[b].x, pts[b].y - 10, 2, '255,186,120', .5 + .5 * Math.sin(t * 2.6 + b));
+    }
+    cx.restore();
+    // Cartel colgado del armazón, a la altura de la subida.
+    D.cartel(x - an * .30, piso - al * 1.02, 'LA RUSA',
+      { ancho: H * .30, color: '#7d4a2c', tinta: '#ffe0b4', colorLuz: '255,180,110' });
+  }
+
+  /* Perfil del circuito, compartido por el dibujo y por la secuencia.
+     Subida larga, caída, y tres lomas cada vez más bajas: es el recorrido
+     clásico y da un ritmo que se siente bien sin retocar nada a mano. */
+  function perfilMontania(x, piso, an, al) {
+    var x0 = x - an * .48;
+    var pts = [];
+    var N = 90;
+    for (var i = 0; i <= N; i++) {
+      var u = i / N;
+      var px = x0 + an * u;
+      var h;
+      if (u < .020) {
+        h = al * .035;                                          // estación
+      } else if (u < .300) {
+        var a0 = (u - .020) / .280;
+        h = al * (.035 + a0 * .965);                            // la cadena
+      } else if (u < .400) {
+        var v = (u - .300) / .100;
+        h = al * (1 - v * v * .93);                             // la caída
+      } else if (u < .560) {
+        var w = (u - .400) / .160;
+        h = al * (.07 + Math.sin(w * Math.PI) * .46);           // loma grande
+      } else if (u < .700) {
+        var z = (u - .560) / .140;
+        h = al * (.07 + Math.sin(z * Math.PI) * .30);           // loma media
+      } else if (u < .830) {
+        var y2 = (u - .700) / .130;
+        h = al * (.06 + Math.sin(y2 * Math.PI) * .17);          // loma chica
+      } else {
+        h = al * .045;                                          // llegada
+      }
+      pts.push({ x: px, y: piso - h - al * .03, u: u });
+    }
+    return pts;
+  }
+
+  /* --- autitos chocadores --- */
+  function chocadores(cx, x, piso, H, t) {
+    var an = H * .78, al = H * .50;
+    var x0 = x - an / 2, x1 = x + an / 2;
+    cx.save();
+
+    // Techo del galpón, a dos aguas, y su estructura.
+    cx.fillStyle = HIERRO;
+    cx.beginPath();
+    cx.moveTo(x0 - an * .04, piso - al);
+    cx.lineTo(x, piso - al * 1.20);
+    cx.lineTo(x1 + an * .04, piso - al);
+    cx.lineTo(x1 + an * .04, piso - al * .93);
+    cx.lineTo(x, piso - al * 1.12);
+    cx.lineTo(x0 - an * .04, piso - al * .93);
+    cx.closePath(); cx.fill();
+
+    // Columnas.
+    cx.fillStyle = HIERRO;
+    [-1, 1].forEach(function (l) {
+      cx.fillRect(x + l * an / 2 - an * .012, piso - al, an * .024, al);
+    });
+
+    // El fondo del galpón, iluminado en verde: es lo que lo hace visible de lejos.
+    var g = cx.createLinearGradient(0, piso - al * .92, 0, piso - al * .10);
+    g.addColorStop(0, 'rgba(70,150,110,.20)');
+    g.addColorStop(1, 'rgba(40,110,80,.06)');
+    cx.fillStyle = g;
+    cx.fillRect(x0, piso - al * .92, an, al * .82);
+
+    // Malla del techo.
+    cx.strokeStyle = 'rgba(40,70,55,.75)'; cx.lineWidth = 1.2;
+    for (var i = 0; i <= 14; i++) {
+      var px = x0 + an * i / 14;
+      cx.beginPath(); cx.moveTo(px, piso - al * .93); cx.lineTo(px, piso - al * .62); cx.stroke();
+    }
+    for (var j = 0; j < 3; j++) {
+      var jy = piso - al * (.93 - j * .105);
+      cx.beginPath(); cx.moveTo(x0, jy); cx.lineTo(x1, jy); cx.stroke();
+    }
+
+    // Pista: piso pulido con reflejo.
+    var pg = cx.createLinearGradient(0, piso - al * .30, 0, piso);
+    pg.addColorStop(0, '#16241c');
+    pg.addColorStop(1, '#0a1210');
+    cx.fillStyle = pg;
+    cx.fillRect(x0, piso - al * .30, an, al * .30);
+    // Baranda con tubos de neón.
+    cx.fillStyle = '#0d1712';
+    cx.fillRect(x0, piso - al * .34, an, al * .05);
+    cx.restore();
+    for (var n = 0; n <= 12; n++)
+      D.bombita(x0 + an * n / 12, piso - al * .335, 2.4, '150,240,190',
+        .5 + .45 * Math.sin(t * 2 + n));
+
+    // Cartel colgado del frente del galpón.
+    D.cartel(x, piso - al * 1.16, 'CHOCADORES',
+      { ancho: H * .34, color: '#3f5a44', tinta: '#d8f5e4', colorLuz: '150,240,190' });
+
+    // Cuatro autitos: tres parados y uno dando vueltas.
+    autito(cx, x - an * .30, piso - al * .16, an * .075, .28, false, t);
+    autito(cx, x + an * .10, piso - al * .09, an * .085, -.5, false, t);
+    autito(cx, x + an * .33, piso - al * .20, an * .070, 1.9, false, t);
+    var u = (t * .16) % 1;
+    autito(cx, x - an * .34 + an * .68 * u, piso - al * .22 + Math.sin(u * 6.28) * al * .07,
+      an * .080, Math.sin(u * 6.28) * .45, true, t);
+
+    D.resplandor(x, piso - al * .45, an * .55, '90,200,145', .12);
+  }
+
+  function autito(cx, x, y, an, giro, vivo, t) {
+    cx.save();
+    cx.translate(x, y); cx.rotate(giro);
+    cx.fillStyle = 'rgba(0,0,0,.4)';
+    cx.beginPath(); cx.ellipse(0, an * .3, an * 1.05, an * .3, 0, 0, 6.2832); cx.fill();
+    cx.fillStyle = vivo ? '#2a1524' : '#0e0c14';
+    cx.beginPath(); cx.ellipse(0, an * .1, an, an * .42, 0, 0, 6.2832); cx.fill();
+    cx.fillStyle = vivo ? '#1a1018' : '#09080e';
+    cx.beginPath(); cx.ellipse(0, -an * .05, an * .8, an * .34, 0, 0, 6.2832); cx.fill();
+    cx.fillStyle = '#05050a';
+    cx.beginPath();
+    cx.moveTo(-an * .34, -an * .1); cx.lineTo(-an * .3, -an * .68);
+    cx.lineTo(an * .16, -an * .68); cx.lineTo(an * .2, -an * .1);
+    cx.closePath(); cx.fill();
+    cx.restore();
+    if (vivo) {
+      if (Math.sin(t * 8.5) > .74) D.bombita(x, y - an * 2.2, 2.6, '190,255,215', 1);
+      D.resplandor(x, y, an * 3, '110,210,160', .09);
+    }
+  }
+
+  /* --- laberinto de espejos --- */
+  function espejos(cx, x, piso, H, t) {
+    var an = H * .56, al = H * .46;
+    var x0 = x - an / 2;
+    cx.save();
+    var n = 7, pa = an / n;
+    for (var i = 0; i < n; i++) {
+      var px = x0 + i * pa;
+      var brillo = .05 + .12 * (0.5 + 0.5 * Math.sin(t * .7 + i * 1.4));
+      var g = cx.createLinearGradient(px, piso - al, px + pa, piso);
+      g.addColorStop(0, 'rgba(160,168,215,' + brillo + ')');
+      g.addColorStop(.5, 'rgba(42,38,68,.6)');
+      g.addColorStop(1, 'rgba(126,134,185,' + (brillo * .6) + ')');
+      cx.fillStyle = g;
+      cx.fillRect(px + 2, piso - al, pa - 4, al);
+      cx.strokeStyle = HIERRO; cx.lineWidth = 3;
+      cx.strokeRect(px + 2, piso - al, pa - 4, al);
+    }
+    // Marquesina.
+    cx.fillStyle = HIERRO;
+    cx.beginPath();
+    cx.moveTo(x0 - an * .05, piso - al);
+    cx.lineTo(x, piso - al * 1.22);
+    cx.lineTo(x0 + an + an * .05, piso - al);
+    cx.closePath(); cx.fill();
+    for (var b = 0; b <= 10; b++) {
+      var u = b / 10;
+      var bx = x0 - an * .05 + (an + an * .1) * u;
+      var by = piso - al - al * .22 * (1 - Math.abs(u - .5) * 2);
+      D.bombita(bx, by, 2, '176,158,235', .5 + .5 * Math.sin(t * 2 + b));
+    }
+    cx.restore();
+    D.cartel(x, piso - al * 1.30, 'ESPEJOS',
+      { ancho: H * .24, color: '#4a3f6e', tinta: '#ddd6ff', colorLuz: '176,158,235' });
+  }
+
+  /* --- martillo de fuerza --- */
+  function martillo(cx, x, piso, H, t) {
+    var al = H * .62, an = H * .13;
+    cx.save();
+    // Riel con marcas y números.
+    cx.fillStyle = HIERRO;
+    cx.fillRect(x - an * .16, piso - al, an * .32, al);
+    cx.fillStyle = HIERRO_LUZ;
+    cx.fillRect(x - an * .07, piso - al, an * .14, al);
+    cx.strokeStyle = '#41345a'; cx.lineWidth = 2.5;
+    for (var i = 1; i < 12; i++) {
+      var y = piso - al * i / 12;
+      cx.beginPath();
+      cx.moveTo(x - an * .30, y); cx.lineTo(x - an * .16, y);
+      cx.stroke();
+      if (i % 3 === 0)
+        D.bombita(x + an * .26, y, 2, '255,150,110', .45 + .4 * Math.sin(t * 2.4 + i));
+    }
+    // Campana arriba.
+    cx.fillStyle = '#7d6330';
+    cx.beginPath();
+    cx.moveTo(x - an * .40, piso - al);
+    cx.quadraticCurveTo(x, piso - al - an * .58, x + an * .40, piso - al);
+    cx.closePath(); cx.fill();
+    cx.fillStyle = '#a88544';
+    cx.beginPath();
+    cx.ellipse(x, piso - al, an * .40, an * .07, 0, 0, 6.2832);
+    cx.fill();
+    D.resplandor(x, piso - al - an * .25, an * 2.2, '255,196,110', .16);
+
+    // Base y maza apoyada.
+    cx.fillStyle = '#1b1526';
+    cx.fillRect(x - an * .62, piso - an * .30, an * 1.24, an * .30);
+    cx.fillStyle = '#2a2138';
+    cx.fillRect(x - an * .62, piso - an * .34, an * 1.24, an * .07);
+    cx.strokeStyle = '#3a2f4a'; cx.lineWidth = an * .10;
+    cx.lineCap = 'round';
+    cx.beginPath();
+    cx.moveTo(x + an * .52, piso - an * .08);
+    cx.lineTo(x + an * .90, piso - an * .82);
+    cx.stroke();
+    cx.fillStyle = '#332a44';
+    cx.save();
+    cx.translate(x + an * .93, piso - an * .90);
+    cx.rotate(-.45);
+    cx.fillRect(-an * .16, -an * .13, an * .32, an * .26);
+    cx.restore();
+
+    cx.restore();
+    D.cartel(x, piso - al - an * 1.10, 'PROBÁ TU FUERZA',
+      { ancho: H * .28, alto: H * .075, color: '#6e4630', tinta: '#ffd9a8', cuerpo: H * .030 });
+  }
+
+  /* --- vuelta al mundo --- */
+  function rueda(cx, x, piso, H, t) {
+    var R = H * .40;
+    var cy = piso - R * 1.18;
+    cx.save();
+    cx.strokeStyle = HIERRO; cx.lineWidth = Math.max(2, R * .028);
+    cx.beginPath(); cx.arc(x, cy, R, 0, 6.2832); cx.stroke();
+    cx.beginPath(); cx.arc(x, cy, R * .92, 0, 6.2832); cx.stroke();
+    var giro = t * .10, N = 16;
+    for (var i = 0; i < N; i++) {
+      var a = giro + i * 6.2832 / N;
+      var px = x + Math.cos(a) * R, py = cy + Math.sin(a) * R;
+      cx.strokeStyle = HIERRO; cx.lineWidth = Math.max(1.2, R * .014);
+      cx.beginPath(); cx.moveTo(x, cy); cx.lineTo(px, py); cx.stroke();
+      var cb = R * .07;
+      cx.fillStyle = HIERRO; cx.fillRect(px - cb / 2, py, cb, cb * 1.3);
+      if (Math.sin(t * 1.5 + i * 1.7) > -.55)
+        D.bombita(px, py, Math.max(1.3, R * .014), '255,198,120', .5 + .5 * Math.sin(t * 2.6 + i));
+    }
+    cx.strokeStyle = HIERRO; cx.lineWidth = Math.max(2.5, R * .045);
+    cx.beginPath();
+    cx.moveTo(x - R * .44, piso); cx.lineTo(x, cy);
+    cx.lineTo(x + R * .44, piso); cx.stroke();
+    cx.beginPath();
+    cx.moveTo(x - R * .28, cy + R * .82); cx.lineTo(x + R * .28, cy + R * .82); cx.stroke();
+    cx.restore();
+    D.carteliPie(x - R * .95, piso, 'VUELTA AL MUNDO',
+      { ancho: H * .20, alto: H * .052, color: '#6b4a55', tinta: '#ffdcc8', cuerpo: H * .022 });
+  }
+
+  /* --- carpa del fondo --- */
+  function carpa(cx, x, piso, H, t) {
+    var an = H * .46, al = H * .42;
+    cx.save();
+    var cima = piso - al * 1.24, hombro = piso - al * .42;
+    for (var i = 0; i < 9; i++) {
+      var u0 = i / 9, u1 = (i + 1) / 9;
+      cx.fillStyle = (i % 2 === 0) ? LONA_A : LONA_B;
+      cx.beginPath();
+      cx.moveTo(x, cima);
+      cx.lineTo(x - an / 2 + an * u0, hombro + Math.pow(Math.abs(u0 - .5) * 2, 2) * al * .14);
+      cx.lineTo(x - an / 2 + an * u1, hombro + Math.pow(Math.abs(u1 - .5) * 2, 2) * al * .14);
+      cx.closePath(); cx.fill();
+    }
+    cx.fillStyle = LONA_A;
+    cx.fillRect(x - an / 2, hombro + al * .14, an, piso - hombro - al * .14);
+    // Boca iluminada: es la única luz de esta punta de la feria.
+    var g = cx.createLinearGradient(x, hombro, x, piso);
+    g.addColorStop(0, 'rgba(255,176,86,.5)');
+    g.addColorStop(1, 'rgba(170,60,60,.12)');
+    cx.fillStyle = g;
+    cx.beginPath();
+    cx.moveTo(x - an * .15, piso); cx.lineTo(x - an * .12, hombro + al * .06);
+    cx.quadraticCurveTo(x, hombro - al * .02, x + an * .12, hombro + al * .06);
+    cx.lineTo(x + an * .15, piso); cx.closePath(); cx.fill();
+    D.resplandor(x, piso - al * .2, an * .7, '255,170,90', .12);
+    // Banderín.
+    cx.strokeStyle = HIERRO; cx.lineWidth = 2;
+    cx.beginPath(); cx.moveTo(x, cima); cx.lineTo(x, cima - al * .16); cx.stroke();
+    cx.fillStyle = '#a8323f';
+    var on = Math.sin(t * 2.2) * 3;
+    cx.beginPath();
+    cx.moveTo(x, cima - al * .16); cx.lineTo(x + 14 + on, cima - al * .11);
+    cx.lineTo(x, cima - al * .06); cx.closePath(); cx.fill();
+    cx.restore();
+  }
+
+  var DIBUJOS = {
+    entrada: entrada, tiro: tiro, calesita: calesita, montania: montania,
+    chocadores: chocadores, espejos: espejos, martillo: martillo,
+    rueda: rueda, carpa: carpa
+  };
+
+  function dibujar(clave, cx, x, piso, H, t) {
+    var f = DIBUJOS[clave];
+    if (f) f(cx, x, piso, H, t);
+  }
+
+  return { dibujar: dibujar, DIBUJOS: DIBUJOS, perfilMontania: perfilMontania };
+})();
+
+/* ===== js/secuencias.js ===== */
+/* Secuencias: los momentos en que el juego toma el control.
+
+   Mientras corre una secuencia, Bel deja de responder a las flechas y la cámara
+   se despega de ella para seguir lo que importe. Cada secuencia es una lista de
+   fases con su duración; el motor avanza sola y llama a pintar() con el
+   progreso, así el dibujo no tiene que llevar la cuenta del tiempo. */
+var Secuencias = (function () {
+  'use strict';
+
+  var A = Atracciones;
+  var B = Bel;
+  var D = Dib;
+
+  /* ============ motor ============ */
+
+  function iniciar(clave, ctx) {
+    var def = DEFS[clave];
+    if (!def) return null;
+    return {
+      clave: clave,
+      def: def,
+      fase: 0,
+      t: 0,
+      total: 0,
+      datos: def.arranque ? def.arranque(ctx) : {},
+      terminada: false
+    };
+  }
+
+  function avanzar(s, dt, ctx) {
+    if (!s || s.terminada) return;
+    s.t += dt;
+    s.total += dt;
+    var f = s.def.fases[s.fase];
+    // Algunas fases no terminan por reloj sino cuando el carro llegó a destino.
+    var cumplida = f.hasta ? f.hasta(s, ctx) : false;
+    if (cumplida || s.t >= f.dur) {
+      // Si terminó por condición, el reloj arranca de cero: restar la duración
+      // completa dejaba un sobrante negativo que estiraba la fase siguiente.
+      s.t = cumplida ? 0 : s.t - f.dur;
+      s.fase++;
+      if (s.fase >= s.def.fases.length) {
+        s.terminada = true;
+        s.fase = s.def.fases.length - 1;
+        s.t = f.dur;
+      }
+    }
+  }
+
+  function faseActual(s) { return s.def.fases[s.fase]; }
+  // Progreso dentro de la fase, de 0 a 1.
+  function u(s) {
+    var f = faseActual(s);
+    return Math.max(0, Math.min(1, s.t / f.dur));
+  }
+
+  /* Suavizados. Los tramos que arrancan y frenan de golpe se sienten mecánicos. */
+  function suave(x) { return x * x * (3 - 2 * x); }
+  function entra(x) { return 1 - Math.pow(1 - x, 3); }
+  function sale(x) { return x * x * x; }
+
+  /* ============ la montaña rusa ============ */
+
+  /* El carro recorre el perfil de la vía. En la subida lo lleva la cadena a
+     velocidad constante; a partir de la cima manda la gravedad: cuanto más
+     abajo está, más rápido va. Es la misma cuenta que hace una montaña rusa
+     de verdad, y por eso el ritmo se siente bien sin ajustar nada a mano. */
+
+  // No es la gravedad real: es la que hace que el recorrido dure lo que tiene
+// que durar en pantalla. Con la de verdad, el circuito se termina en un segundo.
+var GRAVEDAD = 130;
+
+  function montaniaArranque(ctx) {
+    return {
+      // Posición sobre la vía, de 0 a 1.
+      p: 0,
+      v: 0,
+      alturaCima: 0,
+      // Para el clac-clac de la cadena.
+      ultimoClac: 0,
+      clacs: 0,
+      grito: false
+    };
+  }
+
+  /* Punto de la vía y su pendiente, en coordenadas de mundo. */
+  function puntoVia(ctx, p) {
+    var pts = ctx.via;
+    var i = Math.max(0, Math.min(pts.length - 2, Math.floor(p * (pts.length - 1))));
+    var f = p * (pts.length - 1) - i;
+    var a = pts[i], b = pts[i + 1];
+    return {
+      x: a.x + (b.x - a.x) * f,
+      y: a.y + (b.y - a.y) * f,
+      ang: Math.atan2(b.y - a.y, b.x - a.x)
+    };
+  }
+
+  /* Avance físico del carro sobre la vía. */
+  function montaniaFisica(s, ctx, dt) {
+    var d = s.datos;
+    var fase = faseActual(s).nombre;
+    var pts = ctx.via;
+    var largo = ctx.largoVia;
+
+    if (fase === 'cadena') {
+      // La cadena sube a velocidad pareja, sin importar la pendiente.
+      d.v = 105;
+      d.p += (d.v * dt) / largo;
+      if (d.p > ctx.pCima) d.p = ctx.pCima;
+      // Un clac por cada tramo de cadena.
+      d.ultimoClac += dt;
+      if (d.ultimoClac > .17) { d.ultimoClac = 0; d.clacs++; if (ctx.alClac) ctx.alClac(); }
+
+    } else if (fase === 'cima') {
+      // Se descuelga y se deja caer.
+      d.v = 26;
+      d.p += (d.v * dt) / largo;
+
+    } else if (fase === 'recorrido') {
+      var punto = puntoVia(ctx, d.p);
+      // Energía: la velocidad sale de cuánto bajó respecto de la cima.
+      var caida = punto.y - ctx.yCima;          // y crece hacia abajo
+      var v2 = 2 * GRAVEDAD * Math.max(0, caida) + 900;
+      d.v = Math.sqrt(v2);
+      // Rozamiento proporcional a lo ya recorrido: cada loma llega con menos.
+      d.v *= (1 - .10 * (d.p - ctx.pCima) / (1 - ctx.pCima));
+      d.p += (d.v * dt) / largo;
+      if (d.p > 1) d.p = 1;
+      if (!d.grito && d.v > 250) { d.grito = true; if (ctx.alGrito) ctx.alGrito(); }
+
+    } else if (fase === 'frenar') {
+      d.v *= Math.pow(.08, dt);
+      d.p += (d.v * dt) / largo;
+      if (d.p > 1) d.p = 1;
+    }
+  }
+
+  /* Dónde tiene que mirar la cámara durante la secuencia. */
+  function montaniaCamara(s, ctx) {
+    var fase = faseActual(s).nombre;
+    var d = s.datos;
+    if (fase === 'acercarse' || fase === 'bajar') {
+      return { x: ctx.xEstacion + 80, y: 0, zoom: 1 };
+    }
+    var punto = puntoVia(ctx, d.p);
+    // En la caída la cámara se acerca un poco: da vértigo.
+    var zoom = 1;
+    if (fase === 'recorrido') zoom = 1 + Math.min(.16, d.v / 2100);
+    if (fase === 'cima') zoom = 1.06;
+    return { x: punto.x, y: punto.y, zoom: zoom };
+  }
+
+  /* Dibuja el carro con Bel adentro, inclinado según la vía.
+     camaraX es el desplazamiento del mundo; piso es la línea del suelo en
+     pantalla. El zoom lo aplica el motor por fuera con un transform. */
+  function dibujarCarro(cx, ctx, s, camaraX, piso) {
+    var d = s.datos;
+    var fase = faseActual(s).nombre;
+    var punto = puntoVia(ctx, d.p);
+    var sx = punto.x - camaraX;
+    var sy = piso + punto.y;
+    var esc = 1;
+
+    cx.save();
+    cx.translate(sx, sy);
+    cx.rotate(punto.ang);
+
+    var an = 108, al = 62;
+
+    // Sombra sobre la vía.
+    cx.fillStyle = 'rgba(0,0,0,.4)';
+    cx.beginPath();
+    cx.ellipse(0, al * .44, an * .58, al * .12, 0, 0, 6.2832);
+    cx.fill();
+
+    // Respaldo y pared de atrás: van antes que Bel para que quede adentro.
+    cx.fillStyle = '#241a36';
+    cx.beginPath();
+    cx.moveTo(-an * .50, al * .40);
+    cx.lineTo(-an * .54, -al * .66);
+    cx.quadraticCurveTo(-an * .50, -al * .84, -an * .38, -al * .82);
+    cx.lineTo(-an * .30, al * .40);
+    cx.closePath();
+    cx.fill();
+
+    // Bel sentada adentro.
+    cx.save();
+    cx.translate(-an * .10, al * .26);
+    B.sentada(cx, 0, 0, .80, 1);
+    cx.restore();
+
+    // Casco delantero del vagón: tapa a Bel de la cintura para abajo.
+    cx.fillStyle = '#3a2a55';
+    cx.beginPath();
+    cx.moveTo(-an * .52, al * .02);
+    cx.lineTo(an * .40, al * .02);
+    cx.quadraticCurveTo(an * .58, al * .12, an * .52, al * .30);
+    cx.quadraticCurveTo(an * .46, al * .44, an * .28, al * .44);
+    cx.lineTo(-an * .34, al * .44);
+    cx.quadraticCurveTo(-an * .56, al * .40, -an * .52, al * .02);
+    cx.closePath();
+    cx.fill();
+
+    // Franja de color y filo iluminado.
+    cx.fillStyle = '#c23a48';
+    cx.beginPath();
+    cx.moveTo(-an * .50, al * .12);
+    cx.lineTo(an * .44, al * .12);
+    cx.lineTo(an * .42, al * .26);
+    cx.lineTo(-an * .50, al * .26);
+    cx.closePath();
+    cx.fill();
+    cx.strokeStyle = 'rgba(255,200,140,.30)';
+    cx.lineWidth = 1.6;
+    cx.beginPath();
+    cx.moveTo(-an * .52, al * .02);
+    cx.lineTo(an * .40, al * .02);
+    cx.stroke();
+
+    // Trompa en punta.
+    cx.fillStyle = '#48356b';
+    cx.beginPath();
+    cx.moveTo(an * .38, al * .02);
+    cx.quadraticCurveTo(an * .74, al * .14, an * .56, al * .34);
+    cx.lineTo(an * .36, al * .40);
+    cx.closePath();
+    cx.fill();
+
+    // Barra de seguridad, por delante del torso.
+    cx.strokeStyle = '#5a4a78';
+    cx.lineWidth = 5;
+    cx.lineCap = 'round';
+    cx.beginPath();
+    cx.moveTo(-an * .34, -al * .18);
+    cx.lineTo(an * .24, -al * .18);
+    cx.stroke();
+    cx.beginPath();
+    cx.moveTo(-an * .34, -al * .18);
+    cx.lineTo(-an * .40, al * .06);
+    cx.stroke();
+
+    // Ruedas.
+    cx.fillStyle = '#12101c';
+    [-an * .30, an * .24].forEach(function (rx) {
+      cx.beginPath();
+      cx.arc(rx, al * .46, 8, 0, 6.2832);
+      cx.fill();
+    });
+
+    cx.restore();
+
+    // Estela de velocidad en la caída.
+    if (fase === 'recorrido' && d.v > 170) {
+      var q = Math.min(1, (d.v - 170) / 240);
+      cx.save();
+      cx.globalCompositeOperation = 'lighter';
+      cx.strokeStyle = 'rgba(200,220,255,' + (.18 * q) + ')';
+      cx.lineWidth = 1.6;
+      for (var i = 0; i < 7; i++) {
+        var off = (i - 3) * 12 * esc;
+        var largo2 = (40 + i * 9) * q * esc;
+        cx.beginPath();
+        cx.moveTo(sx - Math.cos(punto.ang) * 30 * esc + off * Math.sin(punto.ang),
+                  sy - Math.sin(punto.ang) * 30 * esc - off * Math.cos(punto.ang));
+        cx.lineTo(sx - Math.cos(punto.ang) * (30 * esc + largo2) + off * Math.sin(punto.ang),
+                  sy - Math.sin(punto.ang) * (30 * esc + largo2) - off * Math.cos(punto.ang));
+        cx.stroke();
+      }
+      cx.restore();
+    }
+  }
+
+  var DEFS = {
+    montania: {
+      arranque: montaniaArranque,
+      fisica: montaniaFisica,
+      camara: montaniaCamara,
+      dibujar: dibujarCarro,
+      fases: [
+        { nombre: 'acercarse', dur: 1.8 },
+        // La cuesta termina cuando llega arriba, no cuando se cumple un reloj.
+        { nombre: 'cadena', dur: 14,
+          hasta: function (s, ctx) { return s.datos.p >= ctx.pCima - .001; } },
+        { nombre: 'cima', dur: 1.6 },
+        { nombre: 'recorrido', dur: 16,
+          hasta: function (s, ctx) { return s.datos.p >= .988; } },
+        { nombre: 'frenar', dur: 2.0 },
+        { nombre: 'bajar', dur: 1.8 }
+      ],
+      // Lo que se lee en pantalla en cada fase.
+      rotulos: {
+        acercarse: '',
+        cadena: 'clac… clac… clac…',
+        cima: '',
+        recorrido: '',
+        frenar: '',
+        bajar: ''
+      }
+    }
+  };
+
+  return {
+    iniciar: iniciar, avanzar: avanzar, faseActual: faseActual, u: u,
+    puntoVia: puntoVia, DEFS: DEFS,
+    suave: suave, entra: entra, sale: sale
+  };
+})();
+
+/* ===== js/sentido.js ===== */
+/* El sentido.
+
+   Bel percibe cosas antes de que pasen. Al activarlo el tiempo casi se detiene,
+   el oído se le agudiza y aparecen las señales: puntos donde hay algo que está
+   por ocurrir o algo que no cierra.
+
+   Es un recurso, no un modo: se gasta mientras está puesto y tarda en volver.
+   Y hay señales que caducan — si no llegás a leerlas, pasa lo que iba a pasar.
+
+   Reemplaza a la mirada anterior, que mostraba rastros bonitos pero inertes:
+   se veían, no servían para nada. */
+var Sentido = (function () {
+  'use strict';
+
+  var GASTO = .30;          // fracción de carga por segundo con el sentido puesto
+  var RECARGA = .13;        // fracción por segundo cuando está guardado
+  var LENTITUD = .16;       // a qué velocidad corre el mundo con el sentido puesto
+
+  /* Las señales de cada atracción.
+       tipo    'peligro' | 'presencia' | 'anomalia'
+       x       posición relativa al centro de la parada
+       y       altura sobre el piso (0 = suelo)
+       aviso   lo que el sentido le grita antes de saber qué es
+       info    lo que baja al leerla
+       urgente si es true, caduca: hay que llegar antes de que se acabe la carga */
+  var SENALES = {
+    entrada: [{
+      tipo: 'presencia', x: 120, y: -60,
+      aviso: 'Alguien pasó por acá hace un rato',
+      info: 'El molinete todavía está frenando. Alguien lo cruzó hace menos de un minuto, ' +
+            'y lo cruzó para adentro. Bel es la segunda persona que entra esta noche.'
+    }],
+    tiro: [{
+      tipo: 'peligro', x: -30, y: -95, urgente: true,
+      aviso: 'Algo se va a caer',
+      info: 'El rifle de la izquierda está apoyado en el borde y el mostrador tiene ' +
+            'caída para afuera. En unos segundos se viene abajo. Bel lo corre antes.'
+    }],
+    calesita: [{
+      tipo: 'anomalia', x: 40, y: -120,
+      aviso: 'Esto no gira solo',
+      info: 'La calesita no tiene el eje conectado al motor: el eje está cortado y ' +
+            'las puntas ni se tocan. Gira igual, a la velocidad de siempre.'
+    }],
+    montania: [{
+      tipo: 'peligro', x: -180, y: -260, urgente: true,
+      aviso: 'La estructura está cediendo',
+      info: 'La tercera columna de la subida tiene los bulones flojos y la madera ' +
+            'partida en diagonal. Aguanta un viaje más. Bel lo sabe antes de subir, ' +
+            'y sube igual.'
+    }],
+    chocadores: [{
+      tipo: 'anomalia', x: 20, y: -140,
+      aviso: 'Ese autito no debería andar',
+      info: 'La llave general está baja y la malla del techo no tiene tensión. ' +
+            'El autito que da vueltas no está tomando corriente de ningún lado.'
+    }],
+    espejos: [{
+      tipo: 'presencia', x: 60, y: -150,
+      aviso: 'Hay alguien del otro lado',
+      info: 'En el panel del medio hay alguien parado, y no es un reflejo: cuando Bel ' +
+            'se mueve, ese no se mueve. Espera a que ella se vaya para volver a caminar.'
+    }],
+    martillo: [{
+      tipo: 'anomalia', x: 0, y: -300,
+      aviso: 'Va a sonar',
+      info: 'La campana está por sonar sin que nadie pegue. Bel cuenta hasta tres y ' +
+            'suena. Después se queda callada, como si hubiera saludado.'
+    }],
+    rueda: [{
+      tipo: 'peligro', x: 90, y: -220, urgente: true,
+      aviso: 'Una cabina está por soltarse',
+      info: 'La cabina que viene bajando tiene un solo perno y está trabajando torcida. ' +
+            'Bel se corre del lugar donde va a caer. No cae: se endereza sola.'
+    }],
+    carpa: [{
+      tipo: 'presencia', x: 0, y: -110,
+      aviso: 'Adentro saben que estás acá',
+      info: 'Hay alguien sentado adentro, quieto, con la cara hacia la puerta. ' +
+            'No se movió desde que Bel entró a la feria. La está esperando desde antes.'
+    }]
+  };
+
+  var COLORES = {
+    peligro:   '255,120,110',
+    presencia: '190,170,255',
+    anomalia:  '150,230,210'
+  };
+
+  function crear() {
+    return {
+      activo: false,
+      carga: 1,
+      intensidad: 0,        // 0 mundo normal, 1 tiempo detenido
+      leidas: {},
+      perdidas: {},
+      revelacion: null,     // la ficha que está en pantalla
+      tRevelacion: 0,
+      aviso: null,          // el texto corto del sentido
+      tAviso: 0,
+      pulso: 0              // onda que sale de Bel al activarlo
+    };
+  }
+
+  /* Devuelve false si no había carga suficiente. */
+  function activar(s) {
+    if (s.activo) { s.activo = false; return false; }
+    if (s.carga < .12) return false;
+    s.activo = true;
+    s.pulso = 1;
+    return true;
+  }
+
+  function actualizar(s, dtReal) {
+    if (s.activo) {
+      s.carga -= GASTO * dtReal;
+      if (s.carga <= 0) { s.carga = 0; s.activo = false; }
+    } else if (!s.revelacion) {
+      s.carga = Math.min(1, s.carga + RECARGA * dtReal);
+    }
+    var objetivo = s.activo ? 1 : 0;
+    s.intensidad += (objetivo - s.intensidad) * (1 - Math.pow(0.0008, dtReal));
+    if (s.pulso > 0) s.pulso = Math.max(0, s.pulso - dtReal * .9);
+    if (s.tAviso > 0) { s.tAviso -= dtReal; if (s.tAviso <= 0) s.aviso = null; }
+    if (s.tRevelacion > 0) {
+      s.tRevelacion -= dtReal;
+      if (s.tRevelacion <= 0) s.revelacion = null;
+    }
+  }
+
+  /* Cuánto corre el mundo. Con el sentido puesto, casi nada. */
+  function escalaTiempo(s) {
+    return 1 - (1 - LENTITUD) * s.intensidad;
+  }
+
+  function senalCerca(s, parada, belX) {
+    if (!s.activo || s.intensidad < .35) return null;
+    var lista = SENALES[parada.clave];
+    if (!lista) return null;
+    for (var i = 0; i < lista.length; i++) {
+      var sx = parada.x + lista[i].x;
+      if (Math.abs(belX - sx) < 130) {
+        lista[i]._x = sx; lista[i]._parada = parada.clave;
+        return lista[i];
+      }
+    }
+    return null;
+  }
+
+  /* La señal más cercana en cualquier parada, para el aviso general. */
+  function avisar(s, paradas, belX) {
+    if (!s.activo) return;
+    for (var i = 0; i < paradas.length; i++) {
+      var lista = SENALES[paradas[i].clave];
+      if (!lista) continue;
+      for (var j = 0; j < lista.length; j++) {
+        var sx = paradas[i].x + lista[j].x;
+        if (Math.abs(belX - sx) < 420 && !s.leidas[paradas[i].clave]) {
+          if (s.aviso !== lista[j].aviso) { s.aviso = lista[j].aviso; s.tAviso = 3; }
+          return;
+        }
+      }
+    }
+  }
+
+  function leer(s, senal) {
+    if (!senal || s.leidas[senal._parada]) return false;
+    s.leidas[senal._parada] = true;
+    s.revelacion = senal;
+    s.tRevelacion = 7.5;
+    s.activo = false;         // leerla consume el momento
+    return true;
+  }
+
+  function contar(s) { return Object.keys(s.leidas).length; }
+  function total() { return Object.keys(SENALES).length; }
+
+  /* ---------- dibujo ---------- */
+
+  /* Lo que pasa con la imagen cuando el tiempo se frena: el color se va,
+     queda el contraste, y todo se pone un poco más frío. */
+  function veloFondo(cx, s, W, H) {
+    if (s.intensidad < .01) return;
+    var q = s.intensidad;
+    cx.save();
+    cx.globalCompositeOperation = 'saturation';
+    cx.fillStyle = 'hsl(0,' + Math.round(100 - 78 * q) + '%,50%)';
+    cx.fillRect(-W, -H, W * 3, H * 3);
+    cx.restore();
+    cx.save();
+    cx.fillStyle = 'rgba(10,16,34,' + (.30 * q) + ')';
+    cx.fillRect(-W, -H, W * 3, H * 3);
+    cx.restore();
+  }
+
+  /* La onda que sale de Bel al activarlo: es lo que hace que se sienta un
+     sentido y no un filtro de color. */
+  function onda(cx, s, belXPantalla, piso, H) {
+    if (s.pulso <= 0) return;
+    var q = s.pulso;
+    var r = (1 - q) * H * 1.6;
+    cx.save();
+    cx.globalCompositeOperation = 'lighter';
+    cx.strokeStyle = 'rgba(170,200,255,' + (.30 * q * q) + ')';
+    cx.lineWidth = 2 + 6 * q;
+    cx.beginPath();
+    cx.arc(belXPantalla, piso - H * .18, r, 0, 6.2832);
+    cx.stroke();
+    cx.strokeStyle = 'rgba(140,180,255,' + (.16 * q) + ')';
+    cx.lineWidth = 1.5;
+    cx.beginPath();
+    cx.arc(belXPantalla, piso - H * .18, r * .72, 0, 6.2832);
+    cx.stroke();
+    cx.restore();
+  }
+
+  /* Una señal: un punto que late, con anillos. Los urgentes laten más rápido
+     y se ponen rojos a medida que se agota la carga. */
+  function dibujarSenal(cx, sen, s, x, y, t, leida, cerca) {
+    var q = s.intensidad;
+    if (q < .05) return;
+    var col = leida ? '150,160,190' : COLORES[sen.tipo];
+    var urge = sen.urgente && !leida ? (1 - s.carga) : 0;
+    var ritmo = 2.2 + urge * 5;
+    var late = .55 + .45 * Math.sin(t * ritmo + x * .01);
+
+    cx.save();
+    cx.globalAlpha = q;
+    cx.globalCompositeOperation = 'lighter';
+
+    // Anillos que se cierran hacia el punto.
+    for (var i = 0; i < 3; i++) {
+      var f = ((t * .7 + i / 3) % 1);
+      var rr = 46 * (1 - f) + 8;
+      cx.strokeStyle = 'rgba(' + col + ',' + (.30 * (1 - f) * (leida ? .4 : 1)) + ')';
+      cx.lineWidth = 1.6;
+      cx.beginPath();
+      cx.arc(x, y, rr, 0, 6.2832);
+      cx.stroke();
+    }
+
+    // Halo y punto.
+    var g = cx.createRadialGradient(x, y, 0, x, y, 34);
+    g.addColorStop(0, 'rgba(' + col + ',' + (.50 * late) + ')');
+    g.addColorStop(1, 'rgba(' + col + ',0)');
+    cx.fillStyle = g;
+    cx.beginPath(); cx.arc(x, y, 34, 0, 6.2832); cx.fill();
+    cx.fillStyle = 'rgba(255,255,255,' + (.85 * late) + ')';
+    cx.beginPath(); cx.arc(x, y, cerca ? 5 : 3.4, 0, 6.2832); cx.fill();
+
+    // Marca de leída.
+    if (leida) {
+      cx.fillStyle = 'rgba(' + col + ',.7)';
+      cx.font = "13px 'Cormorant Garamond',serif";
+      cx.textAlign = 'center';
+      cx.fillText('✦', x, y - 22);
+    }
+    cx.restore();
+  }
+
+  return {
+    SENALES: SENALES, COLORES: COLORES,
+    crear: crear, activar: activar, actualizar: actualizar,
+    escalaTiempo: escalaTiempo, senalCerca: senalCerca, avisar: avisar,
+    leer: leer, contar: contar, total: total,
+    veloFondo: veloFondo, onda: onda, dibujarSenal: dibujarSenal
+  };
+})();
+
+// ===== prototipo =====
+const cv = document.getElementById('cv'), cx = cv.getContext('2d');
+const elPrompt = document.getElementById('prompt');
+const elRotulo = document.getElementById('rotulo');
+const elAviso  = document.getElementById('aviso');
+const elTocar  = document.getElementById('tocar');
+const elCarga  = document.getElementById('carga');
+const elCargaLleno = document.getElementById('cargaLleno');
+const elSenal  = document.getElementById('senal');
+const elFicha  = document.getElementById('ficha');
+const elFichaTipo = document.getElementById('fichaTipo');
+const elFichaTxt  = document.getElementById('fichaTxt');
+const elContador  = document.getElementById('contador');
+
+let W = 0, H = 0, dpr = 1, t = 0;
+
+const luna = Luna.estado();
+const m = Mundo.crear();
+const bel = Bel.crear(340, 0);
+const cielo = Cielo.crear();
+const sentido = Sentido.crear();
+const vistas = {};
+
+let despY = 0, zoom = 1, despYObjetivo = 0, zoomObjetivo = 1;
+let ctxMontania = null, secuencia = null, frenoSonado = false;
+
+function armarMontania(){
+  const parada = Mundo.PARADAS.find(p => p.clave === 'montania');
+  const an = H * 2.10, al = H * .66;
+  const pts = Atracciones.perfilMontania(parada.x, 0, an, al);
+  let largo = 0;
+  for (let i = 1; i < pts.length; i++)
+    largo += Math.hypot(pts[i].x - pts[i-1].x, pts[i].y - pts[i-1].y);
+  let iCima = 0;
+  for (let i = 0; i < pts.length; i++) if (pts[i].y < pts[iCima].y) iCima = i;
+  ctxMontania = {
+    via: pts, largoVia: largo,
+    pCima: iCima / (pts.length - 1), yCima: pts[iCima].y,
+    xEstacion: pts[0].x, piso: 0,
+    alClac: () => sonar('clac'), alGrito: () => sonar('viento')
+  };
+}
+
+function medir(){
+  dpr = Math.min(devicePixelRatio || 1, 2);
+  W = innerWidth; H = innerHeight;
+  cv.width = Math.round(W*dpr); cv.height = Math.round(H*dpr);
+  cx.setTransform(dpr,0,0,dpr,0,0);
+  Mundo.sembrar();
+  armarMontania();
+  m.camara = Math.max(0, Math.min(Mundo.ANCHO - W, bel.x - W*.40));
+}
+medir(); addEventListener('resize', medir);
+
+/* ---------- sonido ---------- */
+let ac = null, maestro = null, zumbido = null, zumbidoG = null;
+function audio(){
+  if (ac) return ac;
+  const AC = window.AudioContext || window.webkitAudioContext;
+  if (!AC) return null;
+  ac = new AC();
+  maestro = ac.createGain(); maestro.gain.value = .5;
+  maestro.connect(ac.destination);
+  // Zumbido agudo del sentido: suena siempre, con el volumen en cero.
+  zumbido = ac.createOscillator();
+  zumbido.type = 'sine'; zumbido.frequency.value = 3100;
+  zumbidoG = ac.createGain(); zumbidoG.gain.value = 0;
+  zumbido.connect(zumbidoG).connect(maestro);
+  zumbido.start();
+  return ac;
+}
+function ruidoBuf(dur){
+  const n = Math.max(1, Math.floor(ac.sampleRate * dur));
+  const b = ac.createBuffer(1, n, ac.sampleRate);
+  const d = b.getChannelData(0);
+  for (let i = 0; i < n; i++) d[i] = Math.random()*2-1;
+  const s = ac.createBufferSource(); s.buffer = b; s.start();
+  return s;
+}
+function sonar(tipo){
+  if (!audio()) return;
+  if (ac.state === 'suspended') ac.resume();
+  const ahora = ac.currentTime;
+  if (tipo === 'clac'){
+    const s = ruidoBuf(.05);
+    const bp = ac.createBiquadFilter();
+    bp.type='bandpass'; bp.frequency.value=1900; bp.Q.value=3;
+    const g = ac.createGain();
+    g.gain.setValueAtTime(.22, ahora);
+    g.gain.exponentialRampToValueAtTime(.0001, ahora+.06);
+    s.connect(bp).connect(g).connect(maestro);
+  } else if (tipo === 'viento'){
+    const s = ruidoBuf(3.2);
+    const bp = ac.createBiquadFilter();
+    bp.type='bandpass'; bp.Q.value=1.2;
+    bp.frequency.setValueAtTime(300, ahora);
+    bp.frequency.linearRampToValueAtTime(1500, ahora+1.0);
+    bp.frequency.linearRampToValueAtTime(500, ahora+3.0);
+    const g = ac.createGain();
+    g.gain.setValueAtTime(0, ahora);
+    g.gain.linearRampToValueAtTime(.16, ahora+.5);
+    g.gain.linearRampToValueAtTime(0, ahora+3.1);
+    s.connect(bp).connect(g).connect(maestro);
+  } else if (tipo === 'freno'){
+    const s = ruidoBuf(1.1);
+    const lp = ac.createBiquadFilter(); lp.type='lowpass'; lp.frequency.value=900;
+    const g = ac.createGain();
+    g.gain.setValueAtTime(.14, ahora);
+    g.gain.exponentialRampToValueAtTime(.0001, ahora+1.0);
+    s.connect(lp).connect(g).connect(maestro);
+  } else if (tipo === 'sentido'){
+    // Al abrirse: un grave que se desploma, con un chirrido corto arriba.
+    const o = ac.createOscillator(), g = ac.createGain();
+    o.type='sine';
+    o.frequency.setValueAtTime(420, ahora);
+    o.frequency.exponentialRampToValueAtTime(58, ahora+.7);
+    g.gain.setValueAtTime(.22, ahora);
+    g.gain.exponentialRampToValueAtTime(.0001, ahora+.8);
+    o.connect(g).connect(maestro); o.start(ahora); o.stop(ahora+.85);
+    const s2 = ruidoBuf(.3);
+    const hp = ac.createBiquadFilter(); hp.type='highpass'; hp.frequency.value=5000;
+    const g2 = ac.createGain();
+    g2.gain.setValueAtTime(.10, ahora);
+    g2.gain.exponentialRampToValueAtTime(.0001, ahora+.3);
+    s2.connect(hp).connect(g2).connect(maestro);
+  } else if (tipo === 'revelar'){
+    [784, 1175, 1568].forEach(function(f, i){
+      const o = ac.createOscillator(), g = ac.createGain();
+      o.type='sine'; o.frequency.value=f;
+      g.gain.setValueAtTime(0, ahora+i*.10);
+      g.gain.linearRampToValueAtTime(.06, ahora+i*.10+.01);
+      g.gain.exponentialRampToValueAtTime(.0001, ahora+i*.10+2);
+      o.connect(g).connect(maestro);
+      o.start(ahora+i*.10); o.stop(ahora+i*.10+2.1);
+    });
+  } else if (tipo === 'mirar'){
+    const o = ac.createOscillator(), g = ac.createGain();
+    o.type='sine'; o.frequency.value=620;
+    g.gain.setValueAtTime(0, ahora);
+    g.gain.linearRampToValueAtTime(.05, ahora+.02);
+    g.gain.exponentialRampToValueAtTime(.0001, ahora+.5);
+    o.connect(g).connect(maestro); o.start(ahora); o.stop(ahora+.55);
+  }
+}
+
+/* ---------- controles ---------- */
+const teclas = {};
+addEventListener('keydown', e => {
+  const k = e.key.toLowerCase();
+  teclas[k] = true;
+  if (['arrowleft','arrowright',' '].includes(k)) e.preventDefault();
+  if (k === 'e') interactuar();
+  if (k === ' ') {
+    audio();
+    if (Sentido.activar(sentido)) sonar('sentido');
+  }
+});
+addEventListener('keyup', e => { teclas[e.key.toLowerCase()] = false; });
+
+let tocando = 0;
+elTocar.querySelectorAll('div').forEach(d => {
+  const dir = +d.dataset.dir;
+  d.addEventListener('pointerdown', e => { tocando = dir; d.setPointerCapture(e.pointerId); });
+  d.addEventListener('pointerup', () => { tocando = 0; });
+  d.addEventListener('pointercancel', () => { tocando = 0; });
+});
+
+function entrada(){
+  if (secuencia || sentido.revelacion) return 0;
+  let d = tocando;
+  if (teclas['arrowleft'] || teclas['a']) d -= 1;
+  if (teclas['arrowright'] || teclas['d']) d += 1;
+  return Math.max(-1, Math.min(1, d));
+}
+
+function interactuar(){
+  if (secuencia) return;
+  if (sentido.revelacion){ sentido.tRevelacion = 0; sentido.revelacion = null; return; }
+  const cerca = Mundo.paradaCerca(m, bel.x);
+  if (!cerca) return;
+
+  // Con el sentido puesto, E baja la información de la señal.
+  const sen = Sentido.senalCerca(sentido, cerca, bel.x);
+  if (sen && !sentido.leidas[cerca.clave]){
+    if (Sentido.leer(sentido, sen)) sonar('revelar');
+    return;
+  }
+  if (cerca.clave === 'montania'){
+    audio();
+    secuencia = Secuencias.iniciar('montania', ctxMontania);
+    elTocar.classList.add('oculto');
+    return;
+  }
+  if (cerca.mirar){
+    elRotulo.textContent = cerca.mirar;
+    elRotulo.classList.add('on');
+    clearTimeout(window.__rot);
+    window.__rot = setTimeout(() => elRotulo.classList.remove('on'), 6000);
+    sonar('mirar');
+    vistas[cerca.clave] = true;
+  }
+}
+
+/* ---------- bucle ---------- */
+let ultimo = performance.now();
+
+function cuadro(ahora){
+  const dtReal = Math.min(.05, (ahora - ultimo)/1000);
+  ultimo = ahora;
+
+  Sentido.actualizar(sentido, dtReal);
+  // Con el sentido puesto el mundo casi se detiene; el sentido corre normal.
+  const escala = Sentido.escalaTiempo(sentido);
+  const dt = dtReal * escala;
+  // Bel se mueve más rápido que el mundo frenado: el sentido es de ella.
+  const dtBel = dtReal * (escala + (1 - escala) * .42);
+  t += dt;
+
+  if (zumbidoG && ac){
+    zumbidoG.gain.setTargetAtTime(sentido.intensidad * .012, ac.currentTime, .08);
+  }
+
+  const dir = entrada();
+  const objetivo = dir * Mundo.VELOCIDAD;
+  bel.vx += (objetivo - bel.vx) * (1 - Math.pow(0.002, dtReal));
+  if (Math.abs(bel.vx) < 3) bel.vx = 0;
+  if (!secuencia){
+    bel.x += bel.vx * dtBel;
+    if (bel.x < 120) { bel.x = 120; bel.vx = 0; }
+    if (bel.x > Mundo.ANCHO - 120) { bel.x = Mundo.ANCHO - 120; bel.vx = 0; }
+    if (dir !== 0) bel.mirando = dir;
+  }
+  Bel.actualizar(bel, dtBel, !secuencia && Math.abs(bel.vx) > 4);
+
+  let fase = null;
+  if (secuencia){
+    Secuencias.avanzar(secuencia, dt, ctxMontania);
+    secuencia.def.fisica(secuencia, ctxMontania, dt);
+    fase = Secuencias.faseActual(secuencia).nombre;
+    if (fase === 'frenar' && !frenoSonado){ frenoSonado = true; sonar('freno'); }
+    const c = secuencia.def.camara(secuencia, ctxMontania);
+    m.camara = c.x - W/2;
+    despYObjetivo = c.y; zoomObjetivo = c.zoom;
+    if (secuencia.terminada){
+      secuencia = null; frenoSonado = false;
+      despYObjetivo = 0; zoomObjetivo = 1;
+      elTocar.classList.remove('oculto');
+      bel.x = ctxMontania.xEstacion + 120; bel.vx = 0; bel.mirando = 1;
+    }
+  } else {
+    Mundo.seguirCamara(m, bel.x, W, dtReal);
+    despYObjetivo = 0;
+    // El sentido acerca un poco: la atención se estrecha.
+    zoomObjetivo = 1 + sentido.intensidad * .05;
+  }
+
+  const k = 1 - Math.pow(0.004, dtReal);
+  despY += (despYObjetivo - despY) * k;
+  zoom  += (zoomObjetivo  - zoom)  * k;
+
+  Sentido.avisar(sentido, Mundo.PARADAS, bel.x);
+
+  /* ---------- dibujo ---------- */
+  const piso = H * Mundo.SUELO;
+  cx.setTransform(dpr,0,0,dpr,0,0);
+  cx.clearRect(0,0,W,H);
+
+  cx.save();
+  cx.translate(W/2, piso);
+  cx.scale(zoom, zoom);
+  cx.translate(-W/2, -piso - despY);
+
+  Dib.usar(cx, W, H, t, true);
+  Mundo.fondo(cx, m, W, H, t, luna);
+  Cielo.actualizar(cielo, dt);
+  Cielo.dibujar(cx, cielo, W, H, t);
+  Mundo.suelo(cx, m, W, H, t);
+  Mundo.postes(cx, m, W, H, t);
+  Mundo.guirnaldas(cx, m, W, H, t);
+  Mundo.PARADAS.forEach(p => {
+    const x = p.x - m.camara;
+    if (x < -H*2.4 || x > W + H*2.4) return;
+    Atracciones.dibujar(p.clave, cx, x, piso, H, t);
+  });
+  Mundo.trastos(cx, m, W, H, t);
+
+  // El desaturado va acá: afecta a la feria, no a las señales ni a Bel.
+  Sentido.veloFondo(cx, sentido, W, H);
+
+  if (secuencia){
+    if (fase === 'acercarse' || fase === 'bajar'){
+      const u = Secuencias.u(secuencia);
+      const desde = ctxMontania.xEstacion + 150, hasta = ctxMontania.xEstacion + 10;
+      const p = fase === 'acercarse' ? Secuencias.suave(u) : Secuencias.suave(1-u);
+      bel.vx = fase === 'acercarse' ? -150 : 150;
+      bel.mirando = fase === 'acercarse' ? -1 : 1;
+      Bel.dibujar(cx, bel, (desde + (hasta-desde)*p) - m.camara, piso, 1.0);
+    }
+    secuencia.def.dibujar(cx, ctxMontania, secuencia, m.camara, piso);
+  } else {
+    Bel.dibujar(cx, bel, bel.x - m.camara, piso, 1.0);
+  }
+
+  // Señales, encima de todo lo del mundo.
+  if (sentido.intensidad > .04 && !secuencia){
+    const cercaAhora = Mundo.paradaCerca(m, bel.x);
+    Mundo.PARADAS.forEach(p => {
+      const lista = Sentido.SENALES[p.clave];
+      if (!lista) return;
+      lista.forEach(sn => {
+        const sx = p.x + sn.x - m.camara;
+        if (sx < -120 || sx > W + 120) return;
+        const cerca = cercaAhora === p && Math.abs(bel.x - (p.x + sn.x)) < 130;
+        Sentido.dibujarSenal(cx, sn, sentido, sx, piso + sn.y, t,
+          !!sentido.leidas[p.clave], cerca);
+      });
+    });
+  }
+
+  Sentido.onda(cx, sentido, bel.x - m.camara, piso, H);
+  cx.restore();
+
+  const g = cx.createRadialGradient(W/2, H*.45, Math.min(W,H)*(.75 - sentido.intensidad*.14),
+                                    W/2, H*.45, Math.max(W,H)*.82);
+  g.addColorStop(0,'rgba(4,5,9,0)');
+  g.addColorStop(1,'rgba(4,5,9,' + (.55 + sentido.intensidad*.14) + ')');
+  cx.fillStyle = g; cx.fillRect(0,0,W,H);
+
+  /* ---------- interfaz ---------- */
+  elCargaLleno.style.width = Math.round(sentido.carga * 100) + '%';
+  elCarga.classList.toggle('gastando', sentido.activo);
+  elCarga.classList.toggle('vacia', sentido.carga < .2);
+
+  if (sentido.aviso && !sentido.revelacion){
+    elSenal.textContent = sentido.aviso;
+    elSenal.classList.add('on');
+  } else {
+    elSenal.classList.remove('on');
+  }
+
+  if (sentido.revelacion){
+    const r = sentido.revelacion;
+    elFichaTipo.textContent = r.tipo;
+    elFichaTipo.style.color = 'rgb(' + Sentido.COLORES[r.tipo] + ')';
+    elFichaTxt.textContent = r.info;
+    elFicha.classList.add('on');
+  } else {
+    elFicha.classList.remove('on');
+  }
+
+  elContador.textContent = Sentido.contar(sentido) + ' / ' + Sentido.total();
+
+  if (secuencia || sentido.revelacion){
+    elPrompt.classList.remove('on');
+  } else {
+    const cerca = Mundo.paradaCerca(m, bel.x);
+    const sen = cerca ? Sentido.senalCerca(sentido, cerca, bel.x) : null;
+    if (sen && !sentido.leidas[cerca.clave]){
+      elPrompt.innerHTML = '<b>E</b>leer la señal';
+      elPrompt.classList.add('on');
+    } else if (cerca && !sentido.activo){
+      elPrompt.innerHTML = '<b>E</b>' + (cerca.accion || 'mirar') +
+        (vistas[cerca.clave] ? ' otra vez' : '');
+      elPrompt.classList.add('on');
+    } else {
+      elPrompt.classList.remove('on');
+    }
+  }
+
+  requestAnimationFrame(cuadro);
+}
+requestAnimationFrame(cuadro);
+
+window.__ir = x => { bel.x = x; m.camara = Math.max(0, Math.min(Mundo.ANCHO - W, x - W*.40)); };
+window.__foto = nombre => {
+  const c2 = document.createElement('canvas');
+  c2.width = Math.min(1100, cv.width); c2.height = Math.round(c2.width * cv.height / cv.width);
+  c2.getContext('2d').drawImage(cv, 0, 0, c2.width, c2.height);
+  return c2.toDataURL();
+};
+</script>
+</body>
+</html>

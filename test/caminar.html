@@ -1,0 +1,492 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Kermés — prototipo caminable</title>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;1,400&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%;background:#07090c;overflow:hidden;
+    font-family:'Cormorant Garamond',Georgia,serif;color:#e6ded0}
+  canvas{position:fixed;inset:0;width:100%;height:100%;display:block}
+
+  .hud{position:fixed;left:0;right:0;bottom:0;padding:18px;
+    display:flex;flex-direction:column;align-items:center;gap:9px;
+    pointer-events:none;z-index:3}
+  .aviso{font-family:'IBM Plex Mono',monospace;font-size:.7rem;letter-spacing:.14em;
+    text-transform:uppercase;color:#8f8798;background:rgba(7,9,13,.72);
+    padding:7px 13px;border:1px solid #2a2432;border-radius:2px}
+  .prompt{font-size:1.25rem;color:#ffd28a;text-shadow:0 2px 20px #000;
+    opacity:0;transition:opacity .2s;text-align:center;margin:0}
+  .prompt.on{opacity:1}
+  .prompt b{font-family:'IBM Plex Mono',monospace;font-size:.78rem;
+    border:1px solid #e8a33d;border-radius:3px;padding:2px 7px;margin-right:8px;
+    color:#e8a33d;font-weight:500}
+
+  /* Carga del sentido */
+  .carga{position:fixed;left:22px;top:20px;width:132px;z-index:3;pointer-events:none}
+  .carga .etq{font-family:'IBM Plex Mono',monospace;font-size:.58rem;
+    letter-spacing:.22em;text-transform:uppercase;color:#7d8aa8;margin-bottom:5px}
+  .carga .riel{height:3px;background:rgba(120,140,190,.18);border-radius:2px;overflow:hidden}
+  .carga .lleno{height:100%;width:100%;background:#8fa8e8;
+    transition:width .1s linear,background .3s}
+  .carga.gastando .lleno{background:#e8dc8f}
+  .carga.vacia .lleno{background:#e8848f}
+
+  /* El aviso del sentido: corto, arriba, sin caja */
+  .senal{position:fixed;left:0;right:0;top:11%;text-align:center;margin:0;
+    font-family:'IBM Plex Mono',monospace;font-size:.76rem;letter-spacing:.28em;
+    text-transform:uppercase;color:rgba(200,215,255,.92);
+    text-shadow:0 0 26px rgba(120,160,255,.7),0 2px 10px #000;
+    opacity:0;transition:opacity .3s;pointer-events:none;z-index:3}
+  .senal.on{opacity:1}
+
+  /* La ficha de información */
+  .ficha{position:fixed;left:50%;top:50%;transform:translate(-50%,-46%) scale(.96);
+    width:min(520px,86vw);z-index:4;opacity:0;pointer-events:none;
+    transition:opacity .45s cubic-bezier(.2,.8,.3,1),transform .45s cubic-bezier(.2,.8,.3,1)}
+  .ficha.on{opacity:1;transform:translate(-50%,-50%) scale(1)}
+  .ficha .caja{background:linear-gradient(160deg,rgba(13,17,30,.97),rgba(8,10,20,.97));
+    border:1px solid rgba(140,165,230,.28);padding:22px 26px 20px;
+    box-shadow:0 24px 70px rgba(0,0,0,.8),0 0 60px rgba(90,130,220,.10)}
+  .ficha .tipo{font-family:'IBM Plex Mono',monospace;font-size:.6rem;
+    letter-spacing:.3em;text-transform:uppercase;margin:0 0 10px}
+  .ficha .txt{font-size:1.08rem;line-height:1.62;margin:0;color:#e8e2d8}
+  .ficha .linea{height:1px;margin:14px 0 0;
+    background:linear-gradient(to right,rgba(140,165,230,.5),transparent)}
+
+  .tocar{position:fixed;inset:0;display:flex;z-index:1}
+  .tocar div{flex:1}
+  .tocar.oculto{display:none}
+  /* La observación va en una caja al pie: flotando en el medio se pisaba con
+     los carteles de las atracciones. */
+  .rotulo{position:fixed;left:50%;bottom:96px;transform:translateX(-50%) translateY(10px);
+    margin:0;width:min(600px,88vw);
+    background:linear-gradient(160deg,rgba(20,15,12,.96),rgba(12,9,8,.96));
+    border-left:2px solid rgba(232,163,61,.75);
+    padding:15px 20px;font-size:1.02rem;line-height:1.6;
+    color:rgba(250,232,208,.95);box-shadow:0 16px 44px rgba(0,0,0,.7);
+    opacity:0;transition:opacity .35s,transform .35s;pointer-events:none;z-index:3}
+  .rotulo.on{opacity:1;transform:translateX(-50%) translateY(0)}
+  .contador{position:fixed;top:20px;right:22px;margin:0;
+    font-family:'IBM Plex Mono',monospace;font-size:.72rem;letter-spacing:.18em;
+    color:rgba(190,205,255,.7);text-shadow:0 2px 14px #000;z-index:3}
+</style>
+</head>
+<body>
+<canvas id="cv"></canvas>
+<div class="tocar" id="tocar"><div data-dir="-1"></div><div data-dir="1"></div></div>
+
+<div class="carga" id="carga">
+  <div class="etq">sentido</div>
+  <div class="riel"><div class="lleno" id="cargaLleno"></div></div>
+</div>
+<p class="contador" id="contador">0 / 9</p>
+<p class="senal" id="senal"></p>
+<p class="rotulo" id="rotulo"></p>
+
+<div class="ficha" id="ficha">
+  <div class="caja">
+    <p class="tipo" id="fichaTipo"></p>
+    <p class="txt" id="fichaTxt"></p>
+    <div class="linea"></div>
+  </div>
+</div>
+
+<div class="hud">
+  <p class="prompt" id="prompt"></p>
+  <p class="aviso" id="aviso">← → para caminar · espacio: sentido · E: acercarte</p>
+</div>
+
+<script src="../js/luna.js"></script>
+<script src="../js/dibujo.js"></script>
+<script src="../js/bel.js"></script>
+<script src="../js/cielo.js"></script>
+<script src="../js/mundo.js"></script>
+<script src="../js/atracciones.js"></script>
+<script src="../js/secuencias.js"></script>
+<script src="../js/sentido.js"></script>
+<script>
+const cv = document.getElementById('cv'), cx = cv.getContext('2d');
+const elPrompt = document.getElementById('prompt');
+const elRotulo = document.getElementById('rotulo');
+const elAviso  = document.getElementById('aviso');
+const elTocar  = document.getElementById('tocar');
+const elCarga  = document.getElementById('carga');
+const elCargaLleno = document.getElementById('cargaLleno');
+const elSenal  = document.getElementById('senal');
+const elFicha  = document.getElementById('ficha');
+const elFichaTipo = document.getElementById('fichaTipo');
+const elFichaTxt  = document.getElementById('fichaTxt');
+const elContador  = document.getElementById('contador');
+
+let W = 0, H = 0, dpr = 1, t = 0;
+
+const luna = Luna.estado();
+const m = Mundo.crear();
+const bel = Bel.crear(340, 0);
+const cielo = Cielo.crear();
+const sentido = Sentido.crear();
+const vistas = {};
+
+let despY = 0, zoom = 1, despYObjetivo = 0, zoomObjetivo = 1;
+let ctxMontania = null, secuencia = null, frenoSonado = false;
+
+function armarMontania(){
+  const parada = Mundo.PARADAS.find(p => p.clave === 'montania');
+  const an = H * 2.10, al = H * .66;
+  const pts = Atracciones.perfilMontania(parada.x, 0, an, al);
+  let largo = 0;
+  for (let i = 1; i < pts.length; i++)
+    largo += Math.hypot(pts[i].x - pts[i-1].x, pts[i].y - pts[i-1].y);
+  let iCima = 0;
+  for (let i = 0; i < pts.length; i++) if (pts[i].y < pts[iCima].y) iCima = i;
+  ctxMontania = {
+    via: pts, largoVia: largo,
+    pCima: iCima / (pts.length - 1), yCima: pts[iCima].y,
+    xEstacion: pts[0].x, piso: 0,
+    alClac: () => sonar('clac'), alGrito: () => sonar('viento')
+  };
+}
+
+function medir(){
+  dpr = Math.min(devicePixelRatio || 1, 2);
+  W = innerWidth; H = innerHeight;
+  cv.width = Math.round(W*dpr); cv.height = Math.round(H*dpr);
+  cx.setTransform(dpr,0,0,dpr,0,0);
+  Mundo.sembrar();
+  armarMontania();
+  m.camara = Math.max(0, Math.min(Mundo.ANCHO - W, bel.x - W*.40));
+}
+medir(); addEventListener('resize', medir);
+
+/* ---------- sonido ---------- */
+let ac = null, maestro = null, zumbido = null, zumbidoG = null;
+function audio(){
+  if (ac) return ac;
+  const AC = window.AudioContext || window.webkitAudioContext;
+  if (!AC) return null;
+  ac = new AC();
+  maestro = ac.createGain(); maestro.gain.value = .5;
+  maestro.connect(ac.destination);
+  // Zumbido agudo del sentido: suena siempre, con el volumen en cero.
+  zumbido = ac.createOscillator();
+  zumbido.type = 'sine'; zumbido.frequency.value = 3100;
+  zumbidoG = ac.createGain(); zumbidoG.gain.value = 0;
+  zumbido.connect(zumbidoG).connect(maestro);
+  zumbido.start();
+  return ac;
+}
+function ruidoBuf(dur){
+  const n = Math.max(1, Math.floor(ac.sampleRate * dur));
+  const b = ac.createBuffer(1, n, ac.sampleRate);
+  const d = b.getChannelData(0);
+  for (let i = 0; i < n; i++) d[i] = Math.random()*2-1;
+  const s = ac.createBufferSource(); s.buffer = b; s.start();
+  return s;
+}
+function sonar(tipo){
+  if (!audio()) return;
+  if (ac.state === 'suspended') ac.resume();
+  const ahora = ac.currentTime;
+  if (tipo === 'clac'){
+    const s = ruidoBuf(.05);
+    const bp = ac.createBiquadFilter();
+    bp.type='bandpass'; bp.frequency.value=1900; bp.Q.value=3;
+    const g = ac.createGain();
+    g.gain.setValueAtTime(.22, ahora);
+    g.gain.exponentialRampToValueAtTime(.0001, ahora+.06);
+    s.connect(bp).connect(g).connect(maestro);
+  } else if (tipo === 'viento'){
+    const s = ruidoBuf(3.2);
+    const bp = ac.createBiquadFilter();
+    bp.type='bandpass'; bp.Q.value=1.2;
+    bp.frequency.setValueAtTime(300, ahora);
+    bp.frequency.linearRampToValueAtTime(1500, ahora+1.0);
+    bp.frequency.linearRampToValueAtTime(500, ahora+3.0);
+    const g = ac.createGain();
+    g.gain.setValueAtTime(0, ahora);
+    g.gain.linearRampToValueAtTime(.16, ahora+.5);
+    g.gain.linearRampToValueAtTime(0, ahora+3.1);
+    s.connect(bp).connect(g).connect(maestro);
+  } else if (tipo === 'freno'){
+    const s = ruidoBuf(1.1);
+    const lp = ac.createBiquadFilter(); lp.type='lowpass'; lp.frequency.value=900;
+    const g = ac.createGain();
+    g.gain.setValueAtTime(.14, ahora);
+    g.gain.exponentialRampToValueAtTime(.0001, ahora+1.0);
+    s.connect(lp).connect(g).connect(maestro);
+  } else if (tipo === 'sentido'){
+    // Al abrirse: un grave que se desploma, con un chirrido corto arriba.
+    const o = ac.createOscillator(), g = ac.createGain();
+    o.type='sine';
+    o.frequency.setValueAtTime(420, ahora);
+    o.frequency.exponentialRampToValueAtTime(58, ahora+.7);
+    g.gain.setValueAtTime(.22, ahora);
+    g.gain.exponentialRampToValueAtTime(.0001, ahora+.8);
+    o.connect(g).connect(maestro); o.start(ahora); o.stop(ahora+.85);
+    const s2 = ruidoBuf(.3);
+    const hp = ac.createBiquadFilter(); hp.type='highpass'; hp.frequency.value=5000;
+    const g2 = ac.createGain();
+    g2.gain.setValueAtTime(.10, ahora);
+    g2.gain.exponentialRampToValueAtTime(.0001, ahora+.3);
+    s2.connect(hp).connect(g2).connect(maestro);
+  } else if (tipo === 'revelar'){
+    [784, 1175, 1568].forEach(function(f, i){
+      const o = ac.createOscillator(), g = ac.createGain();
+      o.type='sine'; o.frequency.value=f;
+      g.gain.setValueAtTime(0, ahora+i*.10);
+      g.gain.linearRampToValueAtTime(.06, ahora+i*.10+.01);
+      g.gain.exponentialRampToValueAtTime(.0001, ahora+i*.10+2);
+      o.connect(g).connect(maestro);
+      o.start(ahora+i*.10); o.stop(ahora+i*.10+2.1);
+    });
+  } else if (tipo === 'mirar'){
+    const o = ac.createOscillator(), g = ac.createGain();
+    o.type='sine'; o.frequency.value=620;
+    g.gain.setValueAtTime(0, ahora);
+    g.gain.linearRampToValueAtTime(.05, ahora+.02);
+    g.gain.exponentialRampToValueAtTime(.0001, ahora+.5);
+    o.connect(g).connect(maestro); o.start(ahora); o.stop(ahora+.55);
+  }
+}
+
+/* ---------- controles ---------- */
+const teclas = {};
+addEventListener('keydown', e => {
+  const k = e.key.toLowerCase();
+  teclas[k] = true;
+  if (['arrowleft','arrowright',' '].includes(k)) e.preventDefault();
+  if (k === 'e') interactuar();
+  if (k === ' ') {
+    audio();
+    if (Sentido.activar(sentido)) sonar('sentido');
+  }
+});
+addEventListener('keyup', e => { teclas[e.key.toLowerCase()] = false; });
+
+let tocando = 0;
+elTocar.querySelectorAll('div').forEach(d => {
+  const dir = +d.dataset.dir;
+  d.addEventListener('pointerdown', e => { tocando = dir; d.setPointerCapture(e.pointerId); });
+  d.addEventListener('pointerup', () => { tocando = 0; });
+  d.addEventListener('pointercancel', () => { tocando = 0; });
+});
+
+function entrada(){
+  if (secuencia || sentido.revelacion) return 0;
+  let d = tocando;
+  if (teclas['arrowleft'] || teclas['a']) d -= 1;
+  if (teclas['arrowright'] || teclas['d']) d += 1;
+  return Math.max(-1, Math.min(1, d));
+}
+
+function interactuar(){
+  if (secuencia) return;
+  if (sentido.revelacion){ sentido.tRevelacion = 0; sentido.revelacion = null; return; }
+  const cerca = Mundo.paradaCerca(m, bel.x);
+  if (!cerca) return;
+
+  // Con el sentido puesto, E baja la información de la señal.
+  const sen = Sentido.senalCerca(sentido, cerca, bel.x);
+  if (sen && !sentido.leidas[cerca.clave]){
+    if (Sentido.leer(sentido, sen)) sonar('revelar');
+    return;
+  }
+  if (cerca.clave === 'montania'){
+    audio();
+    secuencia = Secuencias.iniciar('montania', ctxMontania);
+    elTocar.classList.add('oculto');
+    return;
+  }
+  if (cerca.mirar){
+    elRotulo.textContent = cerca.mirar;
+    elRotulo.classList.add('on');
+    clearTimeout(window.__rot);
+    window.__rot = setTimeout(() => elRotulo.classList.remove('on'), 6000);
+    sonar('mirar');
+    vistas[cerca.clave] = true;
+  }
+}
+
+/* ---------- bucle ---------- */
+let ultimo = performance.now();
+
+function cuadro(ahora){
+  const dtReal = Math.min(.05, (ahora - ultimo)/1000);
+  ultimo = ahora;
+
+  Sentido.actualizar(sentido, dtReal);
+  // Con el sentido puesto el mundo casi se detiene; el sentido corre normal.
+  const escala = Sentido.escalaTiempo(sentido);
+  const dt = dtReal * escala;
+  // Bel se mueve más rápido que el mundo frenado: el sentido es de ella.
+  const dtBel = dtReal * (escala + (1 - escala) * .42);
+  t += dt;
+
+  if (zumbidoG && ac){
+    zumbidoG.gain.setTargetAtTime(sentido.intensidad * .012, ac.currentTime, .08);
+  }
+
+  const dir = entrada();
+  const objetivo = dir * Mundo.VELOCIDAD;
+  bel.vx += (objetivo - bel.vx) * (1 - Math.pow(0.002, dtReal));
+  if (Math.abs(bel.vx) < 3) bel.vx = 0;
+  if (!secuencia){
+    bel.x += bel.vx * dtBel;
+    if (bel.x < 120) { bel.x = 120; bel.vx = 0; }
+    if (bel.x > Mundo.ANCHO - 120) { bel.x = Mundo.ANCHO - 120; bel.vx = 0; }
+    if (dir !== 0) bel.mirando = dir;
+  }
+  Bel.actualizar(bel, dtBel, !secuencia && Math.abs(bel.vx) > 4);
+
+  let fase = null;
+  if (secuencia){
+    Secuencias.avanzar(secuencia, dt, ctxMontania);
+    secuencia.def.fisica(secuencia, ctxMontania, dt);
+    fase = Secuencias.faseActual(secuencia).nombre;
+    if (fase === 'frenar' && !frenoSonado){ frenoSonado = true; sonar('freno'); }
+    const c = secuencia.def.camara(secuencia, ctxMontania);
+    m.camara = c.x - W/2;
+    despYObjetivo = c.y; zoomObjetivo = c.zoom;
+    if (secuencia.terminada){
+      secuencia = null; frenoSonado = false;
+      despYObjetivo = 0; zoomObjetivo = 1;
+      elTocar.classList.remove('oculto');
+      bel.x = ctxMontania.xEstacion + 120; bel.vx = 0; bel.mirando = 1;
+    }
+  } else {
+    Mundo.seguirCamara(m, bel.x, W, dtReal);
+    despYObjetivo = 0;
+    // El sentido acerca un poco: la atención se estrecha.
+    zoomObjetivo = 1 + sentido.intensidad * .05;
+  }
+
+  const k = 1 - Math.pow(0.004, dtReal);
+  despY += (despYObjetivo - despY) * k;
+  zoom  += (zoomObjetivo  - zoom)  * k;
+
+  Sentido.avisar(sentido, Mundo.PARADAS, bel.x);
+
+  /* ---------- dibujo ---------- */
+  const piso = H * Mundo.SUELO;
+  cx.setTransform(dpr,0,0,dpr,0,0);
+  cx.clearRect(0,0,W,H);
+
+  cx.save();
+  cx.translate(W/2, piso);
+  cx.scale(zoom, zoom);
+  cx.translate(-W/2, -piso - despY);
+
+  Dib.usar(cx, W, H, t, true);
+  Mundo.fondo(cx, m, W, H, t, luna);
+  Cielo.actualizar(cielo, dt);
+  Cielo.dibujar(cx, cielo, W, H, t);
+  Mundo.suelo(cx, m, W, H, t);
+  Mundo.postes(cx, m, W, H, t);
+  Mundo.guirnaldas(cx, m, W, H, t);
+  Mundo.PARADAS.forEach(p => {
+    const x = p.x - m.camara;
+    if (x < -H*2.4 || x > W + H*2.4) return;
+    Atracciones.dibujar(p.clave, cx, x, piso, H, t);
+  });
+  Mundo.trastos(cx, m, W, H, t);
+
+  // El desaturado va acá: afecta a la feria, no a las señales ni a Bel.
+  Sentido.veloFondo(cx, sentido, W, H);
+
+  if (secuencia){
+    if (fase === 'acercarse' || fase === 'bajar'){
+      const u = Secuencias.u(secuencia);
+      const desde = ctxMontania.xEstacion + 150, hasta = ctxMontania.xEstacion + 10;
+      const p = fase === 'acercarse' ? Secuencias.suave(u) : Secuencias.suave(1-u);
+      bel.vx = fase === 'acercarse' ? -150 : 150;
+      bel.mirando = fase === 'acercarse' ? -1 : 1;
+      Bel.dibujar(cx, bel, (desde + (hasta-desde)*p) - m.camara, piso, 1.0);
+    }
+    secuencia.def.dibujar(cx, ctxMontania, secuencia, m.camara, piso);
+  } else {
+    Bel.dibujar(cx, bel, bel.x - m.camara, piso, 1.0);
+  }
+
+  // Señales, encima de todo lo del mundo.
+  if (sentido.intensidad > .04 && !secuencia){
+    const cercaAhora = Mundo.paradaCerca(m, bel.x);
+    Mundo.PARADAS.forEach(p => {
+      const lista = Sentido.SENALES[p.clave];
+      if (!lista) return;
+      lista.forEach(sn => {
+        const sx = p.x + sn.x - m.camara;
+        if (sx < -120 || sx > W + 120) return;
+        const cerca = cercaAhora === p && Math.abs(bel.x - (p.x + sn.x)) < 130;
+        Sentido.dibujarSenal(cx, sn, sentido, sx, piso + sn.y, t,
+          !!sentido.leidas[p.clave], cerca);
+      });
+    });
+  }
+
+  Sentido.onda(cx, sentido, bel.x - m.camara, piso, H);
+  cx.restore();
+
+  const g = cx.createRadialGradient(W/2, H*.45, Math.min(W,H)*(.75 - sentido.intensidad*.14),
+                                    W/2, H*.45, Math.max(W,H)*.82);
+  g.addColorStop(0,'rgba(4,5,9,0)');
+  g.addColorStop(1,'rgba(4,5,9,' + (.55 + sentido.intensidad*.14) + ')');
+  cx.fillStyle = g; cx.fillRect(0,0,W,H);
+
+  /* ---------- interfaz ---------- */
+  elCargaLleno.style.width = Math.round(sentido.carga * 100) + '%';
+  elCarga.classList.toggle('gastando', sentido.activo);
+  elCarga.classList.toggle('vacia', sentido.carga < .2);
+
+  if (sentido.aviso && !sentido.revelacion){
+    elSenal.textContent = sentido.aviso;
+    elSenal.classList.add('on');
+  } else {
+    elSenal.classList.remove('on');
+  }
+
+  if (sentido.revelacion){
+    const r = sentido.revelacion;
+    elFichaTipo.textContent = r.tipo;
+    elFichaTipo.style.color = 'rgb(' + Sentido.COLORES[r.tipo] + ')';
+    elFichaTxt.textContent = r.info;
+    elFicha.classList.add('on');
+  } else {
+    elFicha.classList.remove('on');
+  }
+
+  elContador.textContent = Sentido.contar(sentido) + ' / ' + Sentido.total();
+
+  if (secuencia || sentido.revelacion){
+    elPrompt.classList.remove('on');
+  } else {
+    const cerca = Mundo.paradaCerca(m, bel.x);
+    const sen = cerca ? Sentido.senalCerca(sentido, cerca, bel.x) : null;
+    if (sen && !sentido.leidas[cerca.clave]){
+      elPrompt.innerHTML = '<b>E</b>leer la señal';
+      elPrompt.classList.add('on');
+    } else if (cerca && !sentido.activo){
+      elPrompt.innerHTML = '<b>E</b>' + (cerca.accion || 'mirar') +
+        (vistas[cerca.clave] ? ' otra vez' : '');
+      elPrompt.classList.add('on');
+    } else {
+      elPrompt.classList.remove('on');
+    }
+  }
+
+  requestAnimationFrame(cuadro);
+}
+requestAnimationFrame(cuadro);
+
+window.__ir = x => { bel.x = x; m.camara = Math.max(0, Math.min(Mundo.ANCHO - W, x - W*.40)); };
+window.__foto = nombre => {
+  const c2 = document.createElement('canvas');
+  c2.width = Math.min(1100, cv.width); c2.height = Math.round(c2.width * cv.height / cv.width);
+  c2.getContext('2d').drawImage(cv, 0, 0, c2.width, c2.height);
+  return fetch('/_captura/' + nombre + '.png', {method:'POST', body: c2.toDataURL()}).then(r=>r.text());
+};
+</script>
+</body>
+</html>
