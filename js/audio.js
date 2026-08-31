@@ -246,6 +246,60 @@ var Audio2 = (function () {
   window.addEventListener('pagehide', apagar);
   window.addEventListener('beforeunload', apagar);
 
+/* ---- señal de silencio entre pestañas ----
+   localStorage avisa a las demás pestañas del mismo origen cuando cambia. Una
+   página cualquiera de fnguerrero.github.io puede escribir esta marca y todos
+   los juegos abiertos se callan solos, sin tener que silenciar el navegador
+   entero desde Windows (que también apagaba YouTube). */
+(function () {
+  function porSenal(e) {
+    if (e.key !== 'juegos.silencio') return;
+    if (typeof Audio2 !== 'undefined') Audio2.apagar();
+  }
+  window.addEventListener('storage', porSenal);
+
+/* ---- auto-silencio por inactividad ----
+   La última red, y la única que no depende de nada externo: ni de que la pestaña
+   se oculte, ni del origen, ni de que llegue una señal. Tres minutos sin tocar
+   una tecla y el juego se calla; vuelve solo al primer toque. Es lo que evita
+   que una pestaña olvidada quede sonando toda la tarde. */
+(function () {
+  var ESPERA = 3 * 60 * 1000;
+  var reloj = null;
+  var dormido = false;
+
+  function callar() {
+    dormido = true;
+    if (typeof Audio2 !== 'undefined') Audio2.apagar();
+  }
+
+  function reanudar() {
+    if (!dormido) return;
+    dormido = false;
+    if (typeof Audio2 !== 'undefined') Audio2.despertar();
+  }
+
+  function reiniciar() {
+    reanudar();
+    if (reloj) clearTimeout(reloj);
+    reloj = setTimeout(callar, ESPERA);
+  }
+
+  ['keydown', 'pointerdown', 'touchstart', 'wheel'].forEach(function (ev) {
+    window.addEventListener(ev, reiniciar, { passive: true });
+  });
+  reiniciar();
+})();
+
+
+  // Si la marca ya estaba puesta al abrir, no se arranca sonando
+  try {
+    var marca = parseInt(window.localStorage.getItem('juegos.silencio'), 10);
+    if (marca && Date.now() - marca < 4000) { if (typeof Audio2 !== 'undefined') Audio2.apagar(); }
+  } catch (err) { /* localStorage puede fallar en file:// */ }
+})();
+
+
   return {
     alternar: alternar, estaEncendido: estaEncendido,
     setTension: setTension, efecto: efecto,
